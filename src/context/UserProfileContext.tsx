@@ -1,6 +1,6 @@
 import {createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { MOCK_USER } from '../mockData';
-import { authAPI, userAPI } from '../api/index';
+import { authAPI } from '../api/index';
 
 const STORAGE_KEY = 'colearn_user_profile';
 
@@ -52,9 +52,30 @@ useEffect(() => {
     const fetchProfile = async () => {
         try {
             const data = await authAPI.getCurrentUser();
+            
+            if (!data) {
+                console.warn('获取用户信息返回空数据');
+                const stored = loadStored();
+                if (stored) {
+                    setProfileState(stored);
+                }
+                return;
+            }
+            
+            const userData = data as any;
+            
+            if (!userData || typeof userData !== 'object') {
+                console.warn('用户数据格式错误:', userData);
+                const stored = loadStored();
+                if (stored) {
+                    setProfileState(stored);
+                }
+                return;
+            }
+            
             setProfileState({
-                displayName: data.nickname || data.displayName || defaultProfile.displayName,
-                avatarUrl: data.avatarUrl || defaultProfile.avatarUrl,
+                displayName: userData.nickname || userData.displayName || defaultProfile.displayName,
+                avatarUrl: userData.avatarUrl || defaultProfile.avatarUrl,
             });
         } catch (error) {
             console.error('获取用户信息失败:', error);
@@ -82,25 +103,37 @@ const persist = useCallback((next: UserProfileState) => {
 }, []);
 
 const setProfile = useCallback(
-    (partial: Partial<UserProfileState>) => {
-    setProfileState((prev) => {
-        const next: UserProfileState = {
-        displayName:
-            partial.displayName !== undefined
-            ? partial.displayName.trim() || defaultProfile.displayName
-            : prev.displayName,
-        avatarUrl:
-            partial.avatarUrl !== undefined
-            ? partial.avatarUrl.trim() || defaultProfile.avatarUrl
-            : prev.avatarUrl,
-        };
+    async (partial: Partial<UserProfileState>) => {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch {
-        /* ignore */
+            const apiData: { nickname?: string; avatarUrl?: string } = {};
+            if (partial.displayName !== undefined) {
+                apiData.nickname = partial.displayName;
             }
-            return next;
-        });
+            if (partial.avatarUrl !== undefined) {
+                apiData.avatarUrl = partial.avatarUrl;
+            }
+            
+            await userAPI.updateProfile(apiData);
+            
+            setProfileState((prev) => {
+                const next: UserProfileState = {
+                    displayName: partial.displayName !== undefined
+                        ? partial.displayName.trim() || defaultProfile.displayName
+                        : prev.displayName,
+                    avatarUrl: partial.avatarUrl !== undefined
+                        ? partial.avatarUrl.trim() || defaultProfile.avatarUrl
+                        : prev.avatarUrl,
+                };
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+                } catch {
+                /* ignore */
+                }
+                return next;
+            });
+        } catch (error) {
+            console.error('更新用户资料失败:', error);
+        }
     },
     [],
 );

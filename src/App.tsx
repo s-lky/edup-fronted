@@ -1,10 +1,11 @@
 
-import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Search, Trophy, LayoutDashboard, Menu, X } from 'lucide-react';
+import { useState, React } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { BookOpen, Search, Trophy, LayoutDashboard, Menu, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { UserProfileProvider, useUserProfile } from './context/UserProfileContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Pages
 import Home from './pages/Home';
@@ -12,11 +13,33 @@ import PlayerPage from './pages/PlayerPage';
 import AdminPage from './pages/AdminPage';
 import RankingsPage from './pages/RankingsPage';
 import UserCenterPage from './pages/UserCenterPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/registerPage';
+
+// 路由守卫组件
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+    const { isAuthenticated, isReady } = useAuth();
+
+    if (!isReady) {
+        return (
+            <div className="flex h-[40vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+
+    return <>{children}</>;
+}
 
 function Navbar(){
     const [isOpen, setIsOpen] = useState(false);
     const location = useLocation();
     const { profile } = useUserProfile();
+    const { user, logout } = useAuth();
 
     const navItems = [
         { name:'学习中心', path:'/', icon:BookOpen },
@@ -25,6 +48,11 @@ function Navbar(){
     ];
 
     const isProfileActive = location.pathname === '/profile';
+
+    // 如果在登录/注册页面，不显示导航栏
+    if (location.pathname === '/login' || location.pathname === '/register') {
+        return null;
+    }
 
     return(
         <nav className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-50 sticky top-0">
@@ -62,25 +90,34 @@ function Navbar(){
                     />
                 </div>
 
-                <Link
-                    to="/profile"
-                    className={cn(
-                        'flex items-center gap-2 rounded-full border px-1.5 py-1 shadow-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
-                        isProfileActive
-                            ? 'border-indigo-200 bg-indigo-50/80 ring-1 ring-indigo-100'
-                            : 'border-slate-100 bg-white hover:border-indigo-200 hover:bg-slate-50',
-                    )}
-                    aria-label="进入个人中心"
-                >
-                    <img
-                        src={profile.avatarUrl}
-                        alt="" 
-                        className="h-7 w-7 shrink-0 rounded-full border border-slate-100 bg-indigo-50 object-cover"    
-                    />
-                    <span className="text-xs font-semibold text-slate-700 pr-2 hidden sm:block max-w-[10rem] truncate">
-                        {profile.displayName}(学员)
-                    </span>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link
+                        to="/profile"
+                        className={cn(
+                            'flex items-center gap-2 rounded-full border px-1.5 py-1 shadow-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2',
+                            isProfileActive
+                                ? 'border-indigo-200 bg-indigo-50/80 ring-1 ring-indigo-100'
+                                : 'border-slate-100 bg-white hover:border-indigo-200 hover:bg-slate-50',
+                        )}
+                        aria-label="进入个人中心"
+                    >
+                        <img
+                            src={profile.avatarUrl}
+                            alt="" 
+                            className="h-7 w-7 shrink-0 rounded-full border border-slate-100 bg-indigo-50 object-cover"    
+                        />
+                        <span className="text-xs font-semibold text-slate-700 pr-2 hidden sm:block max-w-[10rem] truncate">
+                            {profile.displayName}(学员)
+                        </span>
+                    </Link>
+                    
+                    <button
+                        onClick={logout}
+                        className="text-xs text-slate-500 hover:text-red-600 transition-colors"
+                    >
+                        退出
+                    </button>
+                </div>
 
                 <button type="button" className="md:hidden p-2 text-slate-500" onClick={() => setIsOpen(!isOpen)}>
                     {isOpen ? <X size={20}/> : <Menu size={20}/>}
@@ -118,6 +155,15 @@ function Navbar(){
                                 {item.name}
                             </Link>
                         ))}
+                        <button
+                            onClick={() => {
+                                logout();
+                                setIsOpen(false);
+                            }}
+                            className="p-3 rounded-lg text-sm font-medium text-red-600 text-left"
+                        >
+                            退出登录
+                        </button>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -126,6 +172,13 @@ function Navbar(){
 }
 
 function Footer(){
+    const location = useLocation();
+    
+    // 登录/注册页面不显示页脚
+    if (location.pathname === '/login' || location.pathname === '/register') {
+        return null;
+    }
+    
     return(
         <footer className="h-8 bg-slate-900 text-slate-400 text-[10px] px-6 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
@@ -144,20 +197,69 @@ function Footer(){
 }
 
 function AppShell(){
+    const location = useLocation();
+    const isPlayerPage = location.pathname.startsWith('/play/');
+
     return(
         <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
             <Navbar />
             <main className="flex-1 overflow-hidden">
-                <div className="h-full flex flex-col p-4 md:p-6 overflow-y-auto scrollbar-thin">
+                <div
+                    className={cn(
+                        'flex h-full flex-col scrollbar-thin',
+                        isPlayerPage ? 'overflow-hidden p-2 lg:p-4' : 'overflow-y-auto p-4 md:p-6'
+                    )}
+                >
                     <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/play/:courseId/:videoId" element={<PlayerPage />} />
-                        <Route path="/rankings" element={<RankingsPage />} />
-                        <Route path="/admin" element={<AdminPage />} />
-                        <Route path="/profile" element={<UserCenterPage />} />
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/register" element={<RegisterPage />} />
+                        <Route 
+                            path="/" 
+                            element={
+                                <ProtectedRoute>
+                                    <Home />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/play/:courseId/:videoId" 
+                            element={
+                                <ProtectedRoute>
+                                    <PlayerPage />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/rankings" 
+                            element={
+                                <ProtectedRoute>
+                                    <RankingsPage />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/admin" 
+                            element={
+                                <ProtectedRoute>
+                                    <AdminPage />
+                                </ProtectedRoute>
+                            } 
+                        />
+                        <Route 
+                            path="/profile" 
+                            element={
+                                <ProtectedRoute>
+                                    <UserCenterPage />
+                                </ProtectedRoute>
+                            } 
+                        />
                         <Route
-                        path="/dashboard"
-                        element={<UserCenterPage />}
+                            path="/dashboard"
+                            element={
+                                <ProtectedRoute>
+                                    <UserCenterPage />
+                                </ProtectedRoute>
+                            }
                         />
                     </Routes>
                 </div>
@@ -169,10 +271,12 @@ function AppShell(){
 
 export default function App(){
     return(
-        <UserProfileProvider>
-            <Router>
-                <AppShell />
-            </Router>
-        </UserProfileProvider>
+        <AuthProvider>
+            <UserProfileProvider>
+                <Router>
+                    <AppShell />
+                </Router>
+            </UserProfileProvider>
+        </AuthProvider>
     );
 }

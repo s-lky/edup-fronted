@@ -1,28 +1,108 @@
-import { useState } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Heart, Play, Info, Maximize, Clock, User } from 'lucide-react';
-import DanmakuOverlay from '../components/Danmaku';
-import { MOCK_COURSES } from '../mockData';
+import { Heart, Play, Maximize, Clock, Loader2, Star, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AIAssistant from '../components/AIAssistant';
-import { danmakuAPI } from '../api/index';
+import { danmakuAPI, courseAPI } from '../api/index';
+
+interface Course {
+  id: string;
+  title: string;
+  description: string;
+  instructor: string;
+  price: number;
+  thumbnail: string;
+  category: string;
+  studentsCount: number;
+  rating: number;
+  videoCount: number;
+  videos: Array<{
+    id: string;
+    title: string;
+    url: string;
+    duration: string;
+    thumbnail: string;
+    order: number;
+  }>;
+}
 
 export default function PlayerPage() {
   const { courseId, videoId } = useParams();
   const navigate = useNavigate();
+  const redirectOnceRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'chapters' | 'info'>('chapters');
   const [danmakuInput, setDanmakuInput] = useState('');
   const [isLiked, setIsLiked] = useState(false);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [videoLoadError, setVideoLoadError] = useState(false);
 
-  const course = MOCK_COURSES.find(c => c.id === courseId);
-  const video = course?.videos.find(v => v.id === videoId);
+  useEffect(() => {
+    redirectOnceRef.current = false;
+    setVideoLoadError(false);
+  }, [courseId, videoId]);
 
-  if (!course || !video) {
+  useEffect(() => {
+    const fetchCourse = async () => {
+      if (!courseId) {
+        setError('课程 ID 不存在');
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+
+      try {
+        const data = await courseAPI.getDetail(courseId);
+        setCourse(data as Course);
+      } catch (err: unknown) {
+        console.error('获取课程详情失败:', err);
+        setError('加载课程失败，请重试');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourse();
+  }, [courseId]);
+
+  useEffect(() => {
+    if (!course || !courseId || loading || redirectOnceRef.current) return;
+    const videos = course.videos ?? [];
+    if (videos.length === 0) return;
+
+    const matched = videoId && videos.some((v) => v.id === videoId);
+    if (!matched) {
+      redirectOnceRef.current = true;
+      navigate(`/play/${courseId}/${videos[0].id}`, { replace: true });
+    }
+  }, [course, courseId, videoId, loading, navigate]);
+
+  const video = course?.videos.find((v) => v.id === videoId);
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh] flex-col gap-4 text-slate-500 italic">
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-9 w-9 animate-spin text-indigo-600" />
+        <p className="text-base text-slate-500">正在加载课程...</p>
+      </div>
+    );
+  }
+
+  if (error || !course || !video) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-4 italic text-slate-500">
         <Play size={48} className="text-slate-300" />
-        <p>课程或视频未找到</p>
-        <button onClick={() => navigate('/')} className="text-indigo-600 font-bold uppercase tracking-widest text-xs">返回主控台</button>
+        <p className="text-base">{error || '课程或视频未找到'}</p>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="text-sm font-semibold text-indigo-600"
+        >
+          返回主控台
+        </button>
       </div>
     );
   }
@@ -30,181 +110,163 @@ export default function PlayerPage() {
   const handleSendDanmaku = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!danmakuInput.trim() || !videoId) return;
-    
+
     try {
       await danmakuAPI.send(videoId, {
         text: danmakuInput,
         color: '#ffffff',
-        videoTimeSec: 120
+        videoTimeSec: 120,
       });
       setDanmakuInput('');
-    } catch (error) {
-      console.error('发送弹幕失败:', error);
+    } catch (err) {
+      console.error('发送弹幕失败:', err);
       alert('发送失败，请重试');
     }
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full gap-6 overflow-hidden">
-      {/* Main Content Area: Video & Course Details */}
-      <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 scrollbar-thin">
-        {/* Video Player Viewport */}
-        <div className="relative bg-black rounded-2xl aspect-video overflow-hidden shadow-2xl group border-4 border-slate-800 shrink-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-indigo-900 flex items-center justify-center">
-            <img src={video.thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-30" alt="Thumbnail" />
-            <div className="relative z-10 text-center">
-              <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md mb-4 ring-1 ring-white/20">
-                <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1"></div>
-              </div>
-              <p className="text-slate-300 text-xs font-bold tracking-widest uppercase italic">{course.title} - 正在播放</p>
-            </div>
-          </div>
+    <div className="mx-auto grid h-full min-h-0 w-full max-w-[1760px] grid-cols-1 grid-rows-[minmax(0,1fr)] gap-4 min-[960px]:grid-cols-[minmax(0,1fr)_340px] min-[960px]:grid-rows-1 min-[960px]:gap-6">
+      {/* 左侧：固定占满可用高度，内部滚动，不会被右侧聊天撑开 */}
+      <section className="flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto pr-0.5 scrollbar-thin">
+        <div className="group relative aspect-video w-full max-h-[min(52vh,640px)] shrink-0 overflow-hidden rounded-2xl bg-black shadow-2xl shadow-indigo-500/10 min-[960px]:max-h-[min(56vh,680px)]">
+          <video
+            key={video.id}
+            src={video.url}
+            controls
+            playsInline
+            preload="metadata"
+            className="h-full w-full object-contain"
+            poster={video.thumbnail || course.thumbnail}
+            onLoadedData={() => setVideoLoadError(false)}
+            onError={() => setVideoLoadError(true)}
+          >
+            您的浏览器不支持 HTML5 视频
+          </video>
 
-          {/* Danmaku Overlay Layer */}
-          <DanmakuOverlay messages={[]} />
+          {videoLoadError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/95 px-4 text-center text-white">
+              <AlertCircle className="h-8 w-8 text-amber-400" />
+              <p className="text-sm font-semibold">视频加载失败，请检查网络或更换视频地址</p>
+            </div>
+          )}
 
-          {/* Player Controls */}
-          <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/80 to-transparent flex items-center px-6 gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="w-8 h-8 rounded hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors">
-              <Play size={18} fill="white" className="text-white" />
+          {!videoLoadError && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="rounded-lg bg-black/40 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+                沉浸式学习模式
+              </span>
             </div>
-            <div className="flex-1 h-1 bg-slate-600 rounded-full overflow-hidden relative">
-              <div className="absolute left-0 top-0 bottom-0 w-1/3 bg-indigo-500"></div>
-            </div>
-            <span className="text-[10px] text-white font-mono uppercase tracking-tighter">12:45 / {video.duration}</span>
-            <div className="px-2 py-0.5 bg-white/10 rounded text-[10px] text-white border border-white/20 font-bold uppercase">1.25x</div>
-            <Maximize size={16} className="text-white cursor-pointer" />
-          </div>
+          )}
+
+          <button
+            type="button"
+            className="absolute bottom-3 right-3 z-10 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70"
+            aria-label="全屏"
+            onClick={() => document.querySelector('video')?.requestFullscreen?.()}
+          >
+            <Maximize size={16} />
+          </button>
         </div>
 
-        {/* Interaction & Details */}
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 italic tracking-tight">{video.title}</h1>
-              <div className="flex items-center gap-3 mt-1.5">
-                <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded border border-indigo-100">难度: 中级</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <User size={12} /> {course.studentsCount} 人已加入学习
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="button-polish">分享笔记</button>
-              <button 
-                onClick={() => setIsLiked(!isLiked)}
+        <form
+          onSubmit={handleSendDanmaku}
+          className="flex shrink-0 items-center gap-3 rounded-xl border border-slate-100 bg-white p-3 shadow-sm"
+        >
+          <input
+            type="text"
+            value={danmakuInput}
+            onChange={(e) => setDanmakuInput(e.target.value)}
+            placeholder="发送弹幕..."
+            className="flex-1 bg-transparent text-sm text-slate-700 outline-none"
+          />
+          <button
+            type="submit"
+            disabled={!danmakuInput.trim()}
+            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            发送
+          </button>
+        </form>
+
+        <div className="flex shrink-0 items-start justify-between border-b border-slate-200 pb-4">
+          <div className="min-w-0 flex-1 pr-4">
+            <h1 className="text-2xl font-black text-slate-800 min-[960px]:text-3xl">{course.title}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              讲师：{course.instructor} · {course.category}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-700">{video.title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLiked(!isLiked)}
+            className={cn(
+              'shrink-0 rounded-xl border p-2.5',
+              isLiked ? 'border-red-200 bg-red-50 text-red-600' : 'border-slate-100 text-slate-400',
+            )}
+          >
+            <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
+          </button>
+        </div>
+
+        <div className="space-y-4 pb-2">
+          <div className="flex gap-6 border-b border-slate-200">
+            {(['chapters', 'info'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "p-2.5 rounded-xl border transition-all",
-                  isLiked ? "bg-red-50 text-red-500 border-red-100" : "bg-white border-slate-200 text-slate-400 hover:text-slate-600 shadow-sm"
+                  'border-b-2 pb-2 text-sm font-bold',
+                  activeTab === tab ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400',
                 )}
               >
-                <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
+                {tab === 'chapters' ? '课程章节' : '课程详情'}
               </button>
-            </div>
+            ))}
           </div>
 
-          <div className="card-polish p-2 flex items-center gap-2 bg-slate-50">
-            <input 
-              type="text" 
-              placeholder="发个弹幕和大家互动吧..."
-              value={danmakuInput}
-              onChange={(e) => setDanmakuInput(e.target.value)}
-              className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-            />
-            <button 
-              onClick={handleSendDanmaku}
-              className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-black transition-colors"
-            >
-              发送
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-4">
-                <div className="flex gap-8 border-b border-slate-100 h-10 items-center">
-                  {['chapters', 'info'].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab as any)}
-                      className={cn(
-                        "h-10 text-[10px] font-black uppercase tracking-[0.2em] transition-all border-b-2 mt-0.5",
-                        activeTab === tab ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400 hover:text-slate-600"
-                      )}
-                    >
-                      {tab === 'chapters' ? '课程章节' : '详情介绍'}
-                    </button>
-                  ))}
-                </div>
-                  
-                <div className="pt-2">
-                  {activeTab === 'chapters' ? (
-                    <div className="space-y-2">
-                      {course.videos.map((v, i) => (
-                        <button
-                          key={v.id}
-                          onClick={() => navigate(`/play/${course.id}/${v.id}`)}
-                          className={cn(
-                            "w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left group",
-                            v.id === videoId 
-                              ? "bg-indigo-50 border-indigo-100" 
-                              : "bg-white border-slate-100 hover:border-slate-200 shadow-sm"
-                          )}
-                        >
-                          <div className="flex items-center gap-4">
-                            <span className={cn(
-                              "w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black",
-                              v.id === videoId ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"
-                            )}>{String(i + 1).padStart(2, '0')}</span>
-                            <div>
-                              <h4 className={cn("font-bold text-sm italic", v.id === videoId ? "text-indigo-900" : "text-slate-700")}>{v.title}</h4>
-                              <p className="text-[10px] font-bold text-slate-400 mt-0.5 flex items-center gap-1 uppercase tracking-widest"><Clock size={10} /> {v.duration}</p>
-                            </div>
-                          </div>
-                          {v.id === videoId && (
-                              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-50">Active</span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="prose prose-sm max-w-none text-slate-600 leading-relaxed italic">
-                      <div className="p-5 bg-slate-100/50 rounded-2xl border border-slate-100 mb-6 flex items-start gap-4">
-                        <div className="p-2.5 bg-white rounded-lg shadow-sm text-indigo-600"><Info size={20} /></div>
-                        <p className="text-xs text-slate-700">这门课程详细拆解神经网络的核心运行机制。我们将从简单的感知机模型出发，重点讲解损失函数与优化算法的数学原理。</p>
-                      </div>
-                      <p className="text-sm">{course.description}</p>
-                    </div>
+          {activeTab === 'chapters' ? (
+            <div className="space-y-2">
+              {course.videos.map((v, i) => (
+                <div
+                  key={v.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/play/${courseId}/${v.id}`)}
+                  onKeyDown={(e) => e.key === 'Enter' && navigate(`/play/${courseId}/${v.id}`)}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-3 rounded-xl border p-3',
+                    v.id === videoId ? 'border-indigo-200 bg-indigo-50' : 'border-slate-100 bg-white',
                   )}
+                >
+                  <span className="w-6 text-xs font-bold text-slate-400">{String(i + 1).padStart(2, '0')}</span>
+                  <Play size={14} className={v.id === videoId ? 'text-indigo-600' : 'text-slate-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className={cn('truncate text-sm font-bold', v.id === videoId && 'text-indigo-600')}>
+                      {v.title}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
+                      <Clock size={12} /> {v.duration}
+                    </p>
+                  </div>
                 </div>
+              ))}
             </div>
-
-            <div className="md:col-span-1 space-y-4">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">实时学习榜</h3>
-                <div className="card-polish p-4 space-y-3">
-                  {[
-                    { rank: 1, name: '林*华', pts: 245, color: 'bg-amber-100 text-amber-700' },
-                    { rank: 2, name: '张*远', pts: 198, color: 'bg-slate-100 text-slate-700' },
-                    { rank: 3, name: '陈*美', pts: 182, color: 'bg-orange-50 text-orange-700' },
-                  ].map(u => (
-                    <div key={u.rank} className="flex items-center gap-3">
-                      <div className={cn("w-6 h-6 rounded flex items-center justify-center text-[10px] font-black", u.color)}>{u.rank}</div>
-                      <span className="text-xs font-bold text-slate-700">{u.name}</span>
-                      <span className="ml-auto text-[10px] font-bold text-slate-400 uppercase">{u.pts} pts</span>
-                    </div>
-                  ))}
-                </div>
+          ) : (
+            <div className="rounded-xl border border-slate-100 bg-white p-5 text-sm leading-relaxed text-slate-600">
+              {course.description}
             </div>
-          </div>
+          )}
         </div>
-      </div>
+      </section>
 
-      {/* Sidebar: AI Assistant */}
-      <aside className="w-full lg:w-80 h-full flex flex-col shrink-0 border-l border-slate-200 bg-white">
-        <AIAssistant 
-          courseTitle={course.title} 
-          context={`正在观看：${video.title}`}
+      {/* 右侧 AI：固定宽度 + 高度上限，聊天再多也在内部滚动 */}
+      <aside className="flex h-[min(42vh,420px)] min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm min-[960px]:h-full min-[960px]:max-h-full">
+        <AIAssistant
           courseId={courseId}
           videoId={videoId}
+          courseTitle={course.title}
+          context={course.description}
         />
       </aside>
     </div>

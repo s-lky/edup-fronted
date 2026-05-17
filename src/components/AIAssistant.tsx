@@ -43,7 +43,8 @@ export default function AIAssistant({
     const handleSend = async () =>{
         if(!input.trim() || isLoading) return;
 
-        const userMessage: Message = { id: Date.now().toString(), role:'user',content:input };
+        const userText = input.trim();
+        const userMessage: Message = { id: Date.now().toString(), role:'user', content: userText };
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
@@ -55,11 +56,13 @@ export default function AIAssistant({
                 courseTitle,
                 context,
                 messages: [
-                    ...messages.map(m => ({
-                        role: m.role as 'user' | 'assistant',
-                        content: m.content
-                    })),
-                    { role: 'user', content: input }
+                    ...messages
+                        .filter(m => m.role === 'user' || m.role === 'assistant')
+                        .map(m => ({
+                            role: m.role as 'user' | 'assistant',
+                            content: m.content
+                        })),
+                    { role: 'user', content: userText }
                 ]
             });
 
@@ -70,10 +73,11 @@ export default function AIAssistant({
             }]);
         }catch(error){
             console.error('AI Error:', error);
+            const errMsg = error instanceof Error ? error.message : '网络连接失败，请稍后重试';
             setMessages(prev => [...prev, { 
                 id: (Date.now() + 1).toString(), 
                 role:'assistant', 
-                content:"网络连接失败，请稍后重试" 
+                content: errMsg || '网络连接失败，请稍后重试'
             }]);
         }finally{
             setIsLoading(false);
@@ -81,11 +85,11 @@ export default function AIAssistant({
     };
 
     return(
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex h-full min-h-0 w-full max-w-full flex-col overflow-hidden bg-white">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <h2 className="font-bold text-sm text-slate-700 italic">AI 助教小希 (在线)</h2>
+                    <h2 className="text-base font-bold text-slate-700">AI 助教小希 (在线)</h2>
                 </div>
                 <div className="flex items-center gap-2">
                     <Sparkles size={14} className="text-indigo-400"/>
@@ -95,7 +99,7 @@ export default function AIAssistant({
 
             <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin"
+                className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin"
             >
                 {messages.map((m) =>(
                     <div
@@ -111,12 +115,14 @@ export default function AIAssistant({
                         )}>
                             {m.role === 'assistant' ? 'AI' : 'JD'}
                         </div>
-                        <div className={cn(
-                            "p-3 rounded-2xl text-[11px] leading-relaxed italic shadow-sm",
-                            m.role === 'user'
-                                ? "bg-indigo-600 text-white rounded-tr-none"
-                                : "bg-slate-100 text-slate-700 rounded-tl-none border-l-4 border-indigo-400"
-                        )}>
+                        <div
+                            className={cn(
+                                'max-w-[min(100%,280px)] break-words rounded-2xl p-3 text-sm leading-relaxed shadow-sm',
+                                m.role === 'user'
+                                    ? 'rounded-tr-none bg-indigo-600 text-white'
+                                    : 'rounded-tl-none border-l-4 border-indigo-400 bg-slate-100 text-slate-700',
+                            )}
+                        >
                             {m.content}
                         </div>
                     </div>
@@ -139,7 +145,7 @@ export default function AIAssistant({
                         value={input}
                         onChange={(e)=>setInput(e.target.value)}
                         onKeyDown={(e)=>e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
-                        className="w-full bg-white border border-slate-200 rounded-xl p-3 pr-10 text-[11px] focus:ring-2 focus:ring-indigo-500 resize-none italic outline-none transition-all"
+                        className="w-full resize-none rounded-xl border border-slate-200 bg-white p-3 pr-10 text-sm outline-none transition-all focus:ring-2 focus:ring-indigo-500"
                     />
 
                     <button

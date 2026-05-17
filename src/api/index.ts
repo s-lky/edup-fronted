@@ -7,6 +7,59 @@ interface ApiResponse<T> {
     data: T;
 }
 
+interface CourseVO {
+    id: string;
+    title: string;
+    description: string;
+    instructor: string;
+    price: number;
+    thumbnail: string;
+    category: string;
+    studentsCount: number;
+    rating: number;
+    videoCount: number;
+    videos?: Array<{
+        id: string;
+        title: string;
+        url: string;
+        duration: string;
+        thumbnail: string;
+        order: number;
+    }>;
+}
+
+interface CourseListResponse {
+    total: number;
+    page: number;
+    pageSize: number;
+    list: CourseVO[];
+}
+
+interface UserInfo {
+    id: string;
+    nickname: string;
+    displayName?: string;
+    avatarUrl: string;
+    email?: string;
+    role: string;
+}
+
+interface LoginResponse {
+    userId: string;
+    token: string;
+    refreshToken?: string;
+    nickname: string;
+    avatarUrl: string;
+    role: string;
+    email?: string;
+}
+
+interface RegisterResponse {
+    userId: string;
+    token: string;
+    avatarUrl: string;
+}
+
 interface OrderListResponse {
     total: number;
     page: number;
@@ -71,31 +124,55 @@ async function request<T> (
 
 // 认证模块
 export const authAPI = {
-    login: (username: string, password: string) =>
-        request('/auth/login',{
+    login: async (username: string, password: string): Promise<LoginResponse> => {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({ username, password }),
-        }),
-
-    register: (data: { username: string; password: string; email: string; nickname: string })=>
-        request('/auth/register',{
-            method: 'POST',
-            body: JSON.stringify(data),
-        }),
+        });
         
-    refreshToken: (refreshToken: string )=>
-        request('/auth/refresh',{
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: '登录失败' }));
+            throw new Error(error.message || `HTTP ${response.status}`);
+        }
+        
+        const result: ApiResponse<LoginResponse> = await response.json();
+        return result.data;
+    },
+
+    register: async (data: { username: string; password: string; email: string; nickname: string }): Promise<RegisterResponse> => {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: '注册失败' }));
+            throw new Error(error.message || `HTTP ${response.status}`);
+        }
+        
+        const result: ApiResponse<RegisterResponse> = await response.json();
+        return result.data;
+    },
+        
+    refreshToken: (refreshToken: string) =>
+        request('/auth/refresh', {
             method: 'POST',
             body: JSON.stringify({ refreshToken }),
         }),
 
-    getCurrentUser: () => request<{ id: string; nickname: string; displayName?: string; avatarUrl: string; role: string }>('/auth/me'),
+    getCurrentUser: () => request<UserInfo>('/auth/me'),
 };
 
 // 用户资料模块
 export const userAPI = {
     updateProfile: (data: { nickname?: string; avatarUrl?:string }) =>
-        request('/users/me',{
+        request('/users/me', {
             method: 'PATCH',
             body: JSON.stringify(data),
         }),
@@ -103,12 +180,12 @@ export const userAPI = {
 
 // 课程模块
 export const courseAPI = {
-    getList: (params?: { page?: number; pageSize?:number; category?: string; keyword?: string }) =>{
+    getList: (params?: { page?: number; pageSize?:number; category?: string; keyword?: string }) => {
         const query = new URLSearchParams(params as any).toString();
-        return request(`/courses${query ? `?${query}` : ''}`);
+        return request<CourseListResponse>(`/courses${query ? `?${query}` : ''}`);
     },
 
-    getDetail: (courseId: string) => request(`/courses/${courseId}`),
+    getDetail: (courseId: string) => request<CourseVO>(`/courses/${courseId}`),
 };
 
 // 视频进度模块
@@ -122,7 +199,7 @@ export const progressAPI = {
             completed: boolean;
         }
     ) =>
-        request(`/progress/videos/${videoId}`,{
+        request(`/progress/videos/${videoId}`, {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
@@ -136,7 +213,7 @@ export const danmakuAPI = {
         videoId: string,
         data: { text: string; color?: string; videoTimeSec: number }
     ) =>
-        request(`/videos/${videoId}/danmaku`,{
+        request(`/videos/${videoId}/danmaku`, {
             method: 'POST',
             body: JSON.stringify(data),
         }),
