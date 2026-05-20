@@ -1,136 +1,543 @@
-import { useState } from 'react';
-import { Users, Video, DollarSign, TrendingUp, Plus, MoreVertical, Eye, Settings,ShieldCheck,ChevronRight} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+    Users,
+    Video,
+    DollarSign,
+    TrendingUp,
+    Plus,
+    MoreVertical,
+    Eye,
+    Settings,
+    ShieldCheck,
+    ChevronRight,
+    Loader2,
+    Play,
+    FileText,
+} from 'lucide-react';
 import { motion } from 'motion/react';
-import { MOCK_COURSES } from '../mockData';
 import { cn } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
+import {
+    adminAPI,
+    dashboardAPI,
+    type AdminCourseItem,
+    type AdminStats,
+    type LearnerCourseItem,
+    type LearnerDashboardStats,
+    type LearnerLearningTrend,
+    type LearningTrend,
+} from '../api/index';
+import CreateCourseModal from '../components/CreateCourseModal';
+
+const PLACEHOLDER_THUMB =
+    'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&q=80';
+
+const COURSE_STATUS_LABEL: Record<string, string> = {
+    published: '已上线',
+    draft: '草稿',
+    offline: '已下线',
+    learning: '学习中',
+    completed: '已完成',
+    not_started: '未开始',
+};
+
+const COURSE_STATUS_STYLE: Record<string, string> = {
+    published: 'bg-green-50 text-green-600',
+    draft: 'bg-gray-50 text-gray-500',
+    offline: 'bg-red-50 text-red-600',
+    learning: 'bg-blue-50 text-blue-600',
+    completed: 'bg-green-50 text-green-600',
+    not_started: 'bg-gray-50 text-gray-500',
+};
+
+function formatNumber(n: number) {
+    return n.toLocaleString('zh-CN');
+}
+
+function formatGrowth(rate: number) {
+    const sign = rate >= 0 ? '+' : '';
+    return `${sign}${rate}%`;
+}
 
 export default function AdminPage() {
-const stats = [
-    { label: '总学员数', value: '4,520', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: '已发布课程', value: '12', icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { label: '本月营收', value: '¥28,450', icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'AI互动率', value: '82%', icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-];
+    const { user } = useAuth();
+    const isManagementView = user?.role === 'admin' || user?.role === 'instructor';
+    const isAdmin = user?.role === 'admin';
 
-return (
-    <div className="space-y-8 pb-20">
-    {/* Header */}
-        <div className="flex items-center justify-between">
-            <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">管理看板</h1>
-            <p className="text-gray-500 mt-1">欢迎回来，讲师助手已为您同步最新数据</p>
-            </div>
-            <button className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-colors shadow-xl shadow-indigo-100">
-            <Plus size={20} />
-            新建课程
-            </button>
-        </div>
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    {/* Stats Grid */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
-        <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-start justify-between"
-        >
-            <div>
-            <p className="text-sm font-medium text-gray-400 mb-1">{stat.label}</p>
-            <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-            <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 uppercase mt-2 tracking-widest">
-                <ShieldCheck size={12} /> 提升 12.5%
-            </div>
-            </div>
-            <div className={cn("p-4 rounded-2xl", stat.bg, stat.color)}>
-            <stat.icon size={24} />
-            </div>
-        </motion.div>
-        ))}
-    </div>
+    const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+    const [adminCourses, setAdminCourses] = useState<AdminCourseItem[]>([]);
+    const [adminTrend, setAdminTrend] = useState<LearningTrend | null>(null);
 
-    {/* Course List Section */}
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-        <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">已发布课程 ({MOCK_COURSES.length})</h2>
-            <button className="text-sm text-indigo-600 font-bold hover:underline underline-offset-4">查看全部</button>
-        </div>
-        
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="grid grid-cols-6 p-4 bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
-            <div className="col-span-3">课程标题 / 类别</div>
-            <div className="text-center">状态</div>
-            <div className="text-center">营收</div>
-            <div className="text-right">操作</div>
-                </div>
-            <div className="divide-y divide-gray-50">
-            {MOCK_COURSES.map((course) => (
-                <div key={course.id} className="grid grid-cols-6 p-4 items-center hover:bg-gray-50/50 transition-colors">
-                <div className="col-span-3 flex items-center gap-4">
-                    <img src={course.thumbnail} className="w-12 h-12 rounded-xl object-cover" alt="Thumbnail" />
-                        <div>
-                    <h4 className="font-bold text-sm text-gray-900 line-clamp-1">{course.title}</h4>
-                    <p className="text-xs text-indigo-600 font-medium mt-0.5">{course.category}</p>
+    const [learnerStats, setLearnerStats] = useState<LearnerDashboardStats | null>(null);
+    const [learnerCourses, setLearnerCourses] = useState<LearnerCourseItem[]>([]);
+    const [learnerTrend, setLearnerTrend] = useState<LearnerLearningTrend | null>(null);
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+
+        let cancelled = false;
+
+        async function load() {
+            setLoading(true);
+            setError(null);
+            try {
+                if (isManagementView) {
+                    const coursesRes = await adminAPI.listCourses(1, 20);
+                    if (cancelled) return;
+                    setAdminCourses(coursesRes.list ?? []);
+
+                    if (isAdmin) {
+                        const [statsRes, trendRes] = await Promise.all([
+                            adminAPI.getStats(),
+                            adminAPI.getLearningTrend(30),
+                        ]);
+                        if (cancelled) return;
+                        setAdminStats(statsRes);
+                        setAdminTrend(trendRes);
+                    } else {
+                        const totalStudents = coursesRes.list.reduce(
+                            (sum, c) => sum + (c.studentsCount ?? 0),
+                            0,
+                        );
+                        const totalRevenue = coursesRes.list.reduce(
+                            (sum, c) => sum + Number(c.revenue ?? 0),
+                            0,
+                        );
+                        if (cancelled) return;
+                        setAdminStats({
+                            totalUsers: totalStudents,
+                            totalCourses: coursesRes.total,
+                            monthlyRevenue: totalRevenue,
+                            aiInteractionRate: 0,
+                            userGrowth: 0,
+                            revenueGrowth: 0,
+                        });
+                        setAdminTrend(null);
+                    }
+                } else {
+                    const [statsRes, coursesRes, trendRes] = await Promise.all([
+                        dashboardAPI.getStats(),
+                        dashboardAPI.listCourses(1, 20),
+                        dashboardAPI.getLearningTrend(30),
+                    ]);
+                    if (cancelled) return;
+                    setLearnerStats(statsRes);
+                    setLearnerCourses(coursesRes.list ?? []);
+                    setLearnerTrend(trendRes);
+                }
+            } catch (e) {
+                if (!cancelled) {
+                    setError(e instanceof Error ? e.message : '加载失败');
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        }
+
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, [user, isManagementView, isAdmin, refreshKey]);
+
+    const reloadManagementData = () => setRefreshKey((k) => k + 1);
+
+    const managementStats = adminStats
+            ? [
+                {
+                    label: '总学员数',
+                    value: formatNumber(adminStats.totalUsers),
+                    growth: adminStats.userGrowth,
+                    icon: Users,
+                    color: 'text-blue-600',
+                    bg: 'bg-blue-50',
+                },
+                {
+                    label: '已发布课程',
+                    value: formatNumber(adminStats.totalCourses),
+                    growth: 0,
+                    icon: Video,
+                    color: 'text-purple-600',
+                    bg: 'bg-purple-50',
+                },
+                {
+                    label: '本月营收',
+                    value: `¥${formatNumber(Number(adminStats.monthlyRevenue))}`,
+                    growth: adminStats.revenueGrowth,
+                    icon: DollarSign,
+                    color: 'text-green-600',
+                    bg: 'bg-green-50',
+                },
+                {
+                    label: 'AI互动率',
+                    value: `${adminStats.aiInteractionRate}%`,
+                    growth: 0,
+                    icon: TrendingUp,
+                    color: 'text-indigo-600',
+                    bg: 'bg-indigo-50',
+                },
+            ]
+        : [];
+
+    const learnerStatCards = learnerStats
+            ? [
+                {
+                    label: '已学习课程',
+                    value: formatNumber(learnerStats.learnedCoursesCount),
+                    icon: Video,
+                    color: 'text-purple-600',
+                    bg: 'bg-purple-50',
+                },
+                {
+                    label: 'AI互动率',
+                    value: `${learnerStats.aiInteractionRate}%`,
+                    icon: TrendingUp,
+                    color: 'text-indigo-600',
+                    bg: 'bg-indigo-50',
+                },
+            ]
+        : [];
+
+    const stats = isManagementView ? managementStats : learnerStatCards;
+    const courseCount = isManagementView ? adminCourses.length : learnerCourses.length;
+    const courseSectionTitle = isManagementView
+        ? `已发布课程 (${courseCount})`
+        : `已学习课程 (${courseCount})`;
+
+    const completionRate = isManagementView ? 76 : (learnerTrend?.completionRate ?? 0);
+    const trendAiCount = isManagementView
+        ? (adminTrend?.aiQuestions ?? 0)
+        : (learnerTrend?.aiQuestionCount ?? 0);
+    const trendDanmakuCount = isManagementView
+        ? (adminTrend?.regularDanmaku ?? 0)
+        : (learnerTrend?.regularDanmaku ?? 0);
+    const circleOffset = 502 - (502 * completionRate) / 100;
+
+    if (loading) {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex h-[50vh] items-center justify-center"
+            >
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            </motion.div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
+                <p className="text-red-500">{error}</p>
+                <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white"
+                >
+                    重试
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8 pb-20">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center justify-between"
+            >
+                <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                >
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+                        {isManagementView ? '管理看板' : '学习看板'}
+                    </h1>
+                    <p className="mt-1 text-gray-500">
+                        {isManagementView
+                            ? '欢迎回来，讲师助手已为您同步最新数据'
+                            : '欢迎回来，以下是你的学习概况'}
+                    </p>
+                </motion.div>
+                {isManagementView && (
+                    <div className="flex flex-wrap gap-3">
+                        <Link
+                            to="/admin/drafts"
+                            className="flex items-center gap-2 rounded-2xl border border-indigo-200 bg-white px-5 py-3 font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-50"
+                        >
+                            <FileText size={20} />
+                            课程草稿
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={() => setCreateModalOpen(true)}
+                            className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-xl shadow-indigo-100 transition-colors hover:bg-indigo-700"
+                        >
+                            <Plus size={20} />
+                            新建课程
+                        </button>
+                    </div>
+                )}
+            </motion.div>
+
+            <div
+                className={cn(
+                    'grid grid-cols-1 gap-6',
+                    isManagementView ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-2',
+                )}
+            >
+                {stats.map((stat, i) => (
+                    <motion.div
+                        key={stat.label}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="flex items-start justify-between rounded-3xl border border-gray-100 bg-white p-6 shadow-sm"
+                    >
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: i * 0.1 + 0.1 }}
+                        >
+                            <p className="mb-1 text-sm font-medium text-gray-400">{stat.label}</p>
+                            <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                            {isManagementView && 'growth' in stat && isAdmin && (
+                                <div className="mt-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-green-600">
+                                    <ShieldCheck size={12} />
+                                    {formatGrowth((stat as { growth: number }).growth)}
+                                </div>
+                            )}
+                        </motion.div>
+                        <motion.div className={cn('rounded-2xl p-4', stat.bg, stat.color)}>
+                            <stat.icon size={24} />
+                        </motion.div>
+                    </motion.div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                <div className="space-y-6 lg:col-span-2">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-gray-900">{courseSectionTitle}</h2>
+                        <button
+                            type="button"
+                            className="text-sm font-bold text-indigo-600 underline-offset-4 hover:underline"
+                        >
+                            查看全部
+                        </button>
+                    </div>
+
+                    <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
+                        <div
+                            className={cn(
+                                'grid border-b border-gray-100 bg-gray-50 p-4 text-[10px] font-black uppercase tracking-widest text-gray-400',
+                                isManagementView ? 'grid-cols-6' : 'grid-cols-5',
+                            )}
+                        >
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className={isManagementView ? 'col-span-3' : 'col-span-3'}
+                            >
+                                课程标题 / 类别
+                            </motion.div>
+                            <div className="text-center">状态</div>
+                            {isManagementView && <div className="text-center">营收</div>}
+                            {!isManagementView && <div className="text-center">进度</div>}
+                            <div className="text-right">操作</div>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                            {isManagementView
+                                ? adminCourses.map((course) => (
+                                      <div
+                                          key={course.id}
+                                          className="grid grid-cols-6 items-center p-4 transition-colors hover:bg-gray-50/50"
+                                      >
+                                          <div className="col-span-3 flex items-center gap-4">
+                                              <img
+                                                  src={PLACEHOLDER_THUMB}
+                                                  className="h-12 w-12 rounded-xl object-cover"
+                                                  alt=""
+                                              />
+                                              <div>
+                                                  <h4 className="line-clamp-1 text-sm font-bold text-gray-900">
+                                                      {course.title}
+                                                  </h4>
+                                                  <p className="mt-0.5 text-xs font-medium text-indigo-600">
+                                                      {course.category}
+                                                  </p>
+                                              </div>
+                                          </div>
+                                          <div className="text-center">
+                                              <span
+                                                  className={cn(
+                                                      'rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider',
+                                                      COURSE_STATUS_STYLE[course.status] ??
+                                                          'bg-gray-50 text-gray-500',
+                                                  )}
+                                              >
+                                                  {COURSE_STATUS_LABEL[course.status] ?? course.status}
+                                              </span>
+                                          </div>
+                                          <div className="text-center text-sm font-bold text-gray-900">
+                                              ¥{formatNumber(Number(course.revenue ?? 0))}
+                                          </div>
+                                          <div className="flex items-center justify-end gap-2 text-right text-gray-400">
+                                              <button
+                                                  type="button"
+                                                  className="rounded-lg p-2 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                                              >
+                                                  <Eye size={18} />
+                                              </button>
+                                              <button
+                                                  type="button"
+                                                  className="rounded-lg p-2 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                                              >
+                                                  <Settings size={18} />
+                                              </button>
+                                              <button
+                                                  type="button"
+                                                  className="rounded-lg p-2 transition-colors hover:bg-gray-100"
+                                              >
+                                                  <MoreVertical size={18} />
+                                              </button>
+                                          </div>
+                                      </div>
+                                  ))
+                                : learnerCourses.map((course) => (
+                                      <div
+                                          key={course.id}
+                                          className="grid grid-cols-5 items-center p-4 transition-colors hover:bg-gray-50/50"
+                                      >
+                                          <div className="col-span-3 flex items-center gap-4">
+                                              <img
+                                                  src={course.thumbnail || PLACEHOLDER_THUMB}
+                                                  className="h-12 w-12 rounded-xl object-cover"
+                                                  alt=""
+                                              />
+                                              <div>
+                                                  <h4 className="line-clamp-1 text-sm font-bold text-gray-900">
+                                                      {course.title}
+                                                  </h4>
+                                                  <p className="mt-0.5 text-xs font-medium text-indigo-600">
+                                                      {course.category}
+                                                  </p>
+                                              </div>
+                                          </div>
+                                          <div className="text-center">
+                                              <span
+                                                  className={cn(
+                                                      'rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider',
+                                                      COURSE_STATUS_STYLE[course.status] ??
+                                                          'bg-gray-50 text-gray-500',
+                                                  )}
+                                              >
+                                                  {COURSE_STATUS_LABEL[course.status] ?? course.status}
+                                              </span>
+                                          </div>
+                                          <div className="text-center text-sm font-bold text-gray-900">
+                                              {course.progressPercent}%
+                                          </div>
+                                          <div className="flex items-center justify-end gap-2 text-gray-400">
+                                              <Link
+                                                  to={`/play/${course.id}/start`}
+                                                  className="rounded-lg p-2 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                                                  title="继续学习"
+                                              >
+                                                  <Play size={18} />
+                                              </Link>
+                                          </div>
+                                      </div>
+                                  ))}
+                            {courseCount === 0 && (
+                                <div className="p-8 text-center text-sm text-gray-400">
+                                    {isManagementView ? '暂无课程' : '暂无已学习课程，去学习中心选课吧'}
+                                </div>
+                            )}
                         </div>
                     </div>
-                <div className="text-center">
-                    <span className="px-3 py-1 rounded-full bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-wider">已上线</span>
                 </div>
-                <div className="text-center font-bold text-gray-900 text-sm">
-                    ¥{course.price * 12}
-                </div>
-                <div className="text-right flex items-center justify-end gap-2 text-gray-400">
-                    <button className="p-2 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"><Eye size={18} /></button>
-                    <button className="p-2 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors"><Settings size={18} /></button>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><MoreVertical size={18} /></button>
-                    </div>
-                </div>
-            ))}
-            </div>
-        </div>
-    </div>
 
-        {/* Recent Data Visualization Placeholder */}
-    <div className="lg:col-span-1 space-y-6">
-        <h2 className="text-xl font-bold text-gray-900">学习效率趋势</h2>
-            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm text-center">
-                <div className="aspect-square flex items-center justify-center relative">
-            {/* Circular Chart Simulation */}
-                    <svg className="w-48 h-48 -rotate-90">
-                    <circle cx="96" cy="96" r="80" className="stroke-gray-100 fill-none" strokeWidth="12" />
-                    <circle cx="96" cy="96" r="80" className="stroke-indigo-600 fill-none" strokeWidth="12" strokeDasharray="502" strokeDashoffset="120" strokeLinecap="round" />
-                    </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-black text-gray-900">76%</span>
-                    <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">周平均反馈率</span>
-                </div>
-            </div>
-            
-            <div className="mt-8 space-y-4 text-left">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                    <div className="w-3 h-3 rounded-full bg-indigo-600"></div>
-                    AI 辅助提问
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold text-gray-900">学习效率趋势</h2>
+                    <div className="rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+                        <div className="relative flex aspect-square items-center justify-center">
+                            <svg className="h-48 w-48 -rotate-90">
+                                <circle
+                                    cx="96"
+                                    cy="96"
+                                    r="80"
+                                    className="fill-none stroke-gray-100"
+                                    strokeWidth="12"
+                                />
+                                <circle
+                                    cx="96"
+                                    cy="96"
+                                    r="80"
+                                    className="fill-none stroke-indigo-600"
+                                    strokeWidth="12"
+                                    strokeDasharray="502"
+                                    strokeDashoffset={circleOffset}
+                                    strokeLinecap="round"
+                                />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-4xl font-black text-gray-900">
+                                    {completionRate}%
+                                </span>
+                                <span className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                    {isManagementView ? '周平均反馈率' : '课程完成率'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 space-y-4 text-left">
+                            <div className="flex items-center justify-between">
+                                <motion.div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                                    <motion.div className="h-3 w-3 rounded-full bg-indigo-600" />
+                                    AI 辅助提问
+                                </motion.div>
+                                <span className="font-mono text-sm font-bold text-gray-900">
+                                    {formatNumber(trendAiCount)} 次
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                                    <div className="h-3 w-3 rounded-full bg-gray-200" />
+                                    常规弹幕
+                                </div>
+                                <span className="font-mono text-sm font-bold text-gray-900">
+                                    {formatNumber(trendDanmakuCount)} 次
+                                </span>
+                            </div>
+                        </div>
+
+                        {isManagementView && (
+                            <button
+                                type="button"
+                                className="mt-10 flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-50 py-4 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-100"
+                            >
+                                下载完整报表 <ChevronRight size={16} />
+                            </button>
+                        )}
                     </div>
-                    <span className="text-sm font-bold text-gray-900 font-mono">1,240 次</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                    <div className="w-3 h-3 rounded-full bg-gray-200"></div>
-                    常规弹幕
-                    </div>
-                <span className="text-sm font-bold text-gray-900 font-mono">480 次</span>
                 </div>
             </div>
 
-            <button className="w-full mt-10 py-4 rounded-2xl bg-gray-50 text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
-            下载完整报表 <ChevronRight size={16} />
-            </button>
+            {isManagementView && (
+                <CreateCourseModal
+                    open={createModalOpen}
+                    onClose={() => setCreateModalOpen(false)}
+                    onSuccess={reloadManagementData}
+                />
+            )}
         </div>
-        </div>
-    </div>
-    </div>
-);
+    );
 }

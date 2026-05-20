@@ -24,6 +24,7 @@ interface AuthContextType {
     token: string | null;
     login: (token: string, user: User, refreshToken?: string) => void;
     logout: () => void;
+    updateUser: (partial: Partial<User>) => void;
     isAuthenticated: boolean;
     /** 已完成从 localStorage 恢复（首屏同步恢复，通常为 true） */
     isReady: boolean;
@@ -75,6 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(REFRESH_TOKEN_KEY);
     }, []);
 
+    const updateUser = useCallback((partial: Partial<User>) => {
+        setAuth((prev) => {
+            if (!prev.user) return prev;
+            const nextUser = { ...prev.user, ...partial };
+            localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+            return { ...prev, user: nextUser };
+        });
+    }, []);
+
     return (
         <AuthContext.Provider
             value={{
@@ -82,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 token: auth.token,
                 login,
                 logout,
+                updateUser,
                 isAuthenticated: !!auth.token,
                 isReady: true,
             }}

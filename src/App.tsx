@@ -1,16 +1,21 @@
 
 import { useState, React } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { BookOpen, Search, Trophy, LayoutDashboard, Menu, X, Loader2 } from 'lucide-react';
+import { BookOpen, Search, Trophy, LayoutDashboard, Menu, X, Loader2, Library, Map } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { UserProfileProvider, useUserProfile } from './context/UserProfileContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SearchProvider, useSearch } from './context/SearchContext';
 
 // Pages
 import Home from './pages/Home';
+import CoursesPage from './pages/CoursesPage';
+import LearningPathsPage from './pages/LearningPathsPage';
+import LearningPathDetailPage from './pages/LearningPathDetailPage';
 import PlayerPage from './pages/PlayerPage';
 import AdminPage from './pages/AdminPage';
+import CourseDraftsPage from './pages/CourseDraftsPage';
 import RankingsPage from './pages/RankingsPage';
 import UserCenterPage from './pages/UserCenterPage';
 import LoginPage from './pages/LoginPage';
@@ -40,12 +45,28 @@ function Navbar(){
     const location = useLocation();
     const { profile } = useUserProfile();
     const { user, logout } = useAuth();
+    const { draft, setDraft, submitSearch } = useSearch();
+
+    const adminNavLabel =
+        user?.role === 'learner' ? '学习看板' : '管理后台';
 
     const navItems = [
         { name:'学习中心', path:'/', icon:BookOpen },
         { name:'成长中心', path:'/rankings', icon:Trophy },
-        { name:'管理后台', path:'/admin', icon:LayoutDashboard },
+        { name: adminNavLabel, path:'/admin', icon:LayoutDashboard },
+        { name:'课程专区', path:'/courses', icon:Library },
+        { name:'学习路径', path:'/learning-paths', icon:Map },
     ];
+
+    const isNavActive = (path: string) => {
+        if (path === '/courses') {
+            return location.pathname === '/courses';
+        }
+        if (path === '/learning-paths') {
+            return location.pathname.startsWith('/learning-paths');
+        }
+        return location.pathname === path;
+    };
 
     const isProfileActive = location.pathname === '/profile';
 
@@ -69,7 +90,7 @@ function Navbar(){
                             to={item.path}
                             className={cn(
                                 "h-14 flex items-center text-sm font-medium transition-all border-b-2 mt-0.5",
-                                location.pathname === item.path 
+                                isNavActive(item.path)
                                 ? "text-indigo-600 border-indigo-600" 
                                 : "text-slate-500 border-transparent hover:text-slate-800"
                             )}
@@ -81,14 +102,22 @@ function Navbar(){
             </div>
 
             <div className="flex items-center gap-4">
-                <div className="relative hidden md:block">
+                <form
+                    className="relative hidden md:block"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        submitSearch();
+                    }}
+                >
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input 
-                        type="text" 
-                        placeholder="搜索知识点..." 
-                        className="bg-slate-100 border-none rounded-full py-1.5 pl-9 pr-4 text-sm w-48 lg:w-64 focus:ring-2 focus:ring-indigo-500 transition-all"
+                    <input
+                        type="search"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        placeholder="搜索课程..."
+                        className="w-48 rounded-full border-none bg-slate-100 py-1.5 pl-9 pr-4 text-sm transition-all focus:ring-2 focus:ring-indigo-500 lg:w-64"
                     />
-                </div>
+                </form>
 
                 <div className="flex items-center gap-2">
                     <Link
@@ -107,7 +136,12 @@ function Navbar(){
                             className="h-7 w-7 shrink-0 rounded-full border border-slate-100 bg-indigo-50 object-cover"    
                         />
                         <span className="text-xs font-semibold text-slate-700 pr-2 hidden sm:block max-w-[10rem] truncate">
-                            {profile.displayName}(学员)
+                            {profile.displayName}
+                            {user?.role === 'instructor'
+                                ? '(讲师)'
+                                : user?.role === 'admin'
+                                  ? '(管理员)'
+                                  : '(学员)'}
                         </span>
                     </Link>
                     
@@ -132,6 +166,25 @@ function Navbar(){
                         exit={{ opacity:0,y:-10 }}
                         className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-slate-200 shadow-xl p-4 flex flex-col gap-2"
                     >
+                        <form
+                            className="p-3"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                submitSearch();
+                                setIsOpen(false);
+                            }}
+                        >
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <input
+                                    type="search"
+                                    value={draft}
+                                    onChange={(e) => setDraft(e.target.value)}
+                                    placeholder="搜索课程..."
+                                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                                />
+                            </div>
+                        </form>
                         <Link
                             to="/profile"
                             onClick={() => setIsOpen(false)}
@@ -149,7 +202,7 @@ function Navbar(){
                                 onClick={() => setIsOpen(false)}
                                 className={cn(
                                     "p-3 rounded-lg text-sm font-medium",
-                                    location.pathname === item.path ? "bg-slate-100 text-indigo-600" : "text-slate-600"
+                                    isNavActive(item.path) ? "bg-slate-100 text-indigo-600" : "text-slate-600"
                                 )}
                             >
                                 {item.name}
@@ -221,6 +274,30 @@ function AppShell(){
                                 </ProtectedRoute>
                             } 
                         />
+                        <Route
+                            path="/courses"
+                            element={
+                                <ProtectedRoute>
+                                    <CoursesPage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/learning-paths"
+                            element={
+                                <ProtectedRoute>
+                                    <LearningPathsPage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/learning-paths/:pathId"
+                            element={
+                                <ProtectedRoute>
+                                    <LearningPathDetailPage />
+                                </ProtectedRoute>
+                            }
+                        />
                         <Route 
                             path="/play/:courseId/:videoId" 
                             element={
@@ -244,6 +321,14 @@ function AppShell(){
                                     <AdminPage />
                                 </ProtectedRoute>
                             } 
+                        />
+                        <Route
+                            path="/admin/drafts"
+                            element={
+                                <ProtectedRoute>
+                                    <CourseDraftsPage />
+                                </ProtectedRoute>
+                            }
                         />
                         <Route 
                             path="/profile" 
@@ -274,7 +359,9 @@ export default function App(){
         <AuthProvider>
             <UserProfileProvider>
                 <Router>
-                    <AppShell />
+                    <SearchProvider>
+                        <AppShell />
+                    </SearchProvider>
                 </Router>
             </UserProfileProvider>
         </AuthProvider>

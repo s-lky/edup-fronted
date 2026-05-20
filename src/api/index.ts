@@ -1,4 +1,4 @@
-import { API_BASE_URL }  from "./config";
+import { API_BASE_URL, API_V1_BASE_URL } from './config';
 
 // 类型定义
 interface ApiResponse<T> {
@@ -54,6 +54,12 @@ interface LoginResponse {
     email?: string;
 }
 
+interface RefreshTokenResponse {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+}
+
 interface RegisterResponse {
     userId: string;
     token: string;
@@ -97,29 +103,61 @@ interface AIChatResponse {
     suggestions?: string[];
 }
 
-// 通用请求封装
-async function request<T> (
-    endpoint:string,
-    options:RequestInit = {}
-) : Promise<T>{
+async function parseApiResponse<T>(response: Response): Promise<T> {
+    const result: ApiResponse<T> = await response.json().catch(() => ({
+        code: response.status,
+        message: '请求失败',
+        data: null as unknown as T,
+    }));
+
+    if (!response.ok) {
+        throw new Error(result.message || `HTTP ${response.status}`);
+    }
+    if (result.code !== 200) {
+        throw new Error(result.message || '请求失败');
+    }
+    if (result.data === null || result.data === undefined) {
+        throw new Error(result.message || '返回数据为空');
+    }
+    return result.data;
+}
+
+// 通用请求封装（/api/*）
+async function request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+): Promise<T> {
     const token = localStorage.getItem('accessToken');
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`,{
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
-        headers:{
+        headers: {
             'Content-Type': 'application/json',
             ...(token && { Authorization: `Bearer ${token}` }),
             ...options.headers,
         },
     });
 
-    if(!response.ok){
-        const error = await response.json().catch(() => ({ message: '请求失败' }));
-        throw new Error(error.message || `HTTP ${response.status}`);
-    }
+    return parseApiResponse<T>(response);
+}
 
-    const result: ApiResponse<T> = await response.json();
-    return result.data;
+// /api/v1/* 请求
+async function requestV1<T>(
+    endpoint: string,
+    options: RequestInit = {},
+): Promise<T> {
+    const token = localStorage.getItem('accessToken');
+
+    const response = await fetch(`${API_V1_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+            ...options.headers,
+        },
+    });
+
+    return parseApiResponse<T>(response);
 }
 
 // 认证模块
@@ -133,12 +171,16 @@ export const authAPI = {
             body: JSON.stringify({ username, password }),
         });
         
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: '登录失败' }));
-            throw new Error(error.message || `HTTP ${response.status}`);
+        const result: ApiResponse<LoginResponse> = await response.json().catch(() => ({
+            code: response.status,
+            message: '登录失败',
+            data: null as unknown as LoginResponse,
+        }));
+
+        if (!response.ok || result.code !== 200 || !result.data) {
+            throw new Error(result.message || '登录失败');
         }
-        
-        const result: ApiResponse<LoginResponse> = await response.json();
+
         return result.data;
     },
 
@@ -151,17 +193,21 @@ export const authAPI = {
             body: JSON.stringify(data),
         });
         
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: '注册失败' }));
-            throw new Error(error.message || `HTTP ${response.status}`);
+        const result: ApiResponse<RegisterResponse> = await response.json().catch(() => ({
+            code: response.status,
+            message: '注册失败',
+            data: null as unknown as RegisterResponse,
+        }));
+
+        if (!response.ok || result.code !== 200 || !result.data) {
+            throw new Error(result.message || '注册失败');
         }
-        
-        const result: ApiResponse<RegisterResponse> = await response.json();
+
         return result.data;
     },
         
     refreshToken: (refreshToken: string) =>
-        request('/auth/refresh', {
+        requestV1<RefreshTokenResponse>('/auth/refresh', {
             method: 'POST',
             body: JSON.stringify({ refreshToken }),
         }),
@@ -171,12 +217,74 @@ export const authAPI = {
 
 // 用户资料模块
 export const userAPI = {
-    updateProfile: (data: { nickname?: string; avatarUrl?:string }) =>
-        request('/users/me', {
+    updateProfile: (data: { nickname?: string; avatarUrl?: string }) =>
+        requestV1('/users/me', {
             method: 'PATCH',
             body: JSON.stringify(data),
         }),
 };
+
+export interface CreateCoursePayload {
+    title: string;
+    description?: string;
+    category: string;
+    price: number;
+    thumbnail?: string;
+    publish?: boolean;
+    videos?: Array<{
+        title: string;
+        url: string;
+        duration: string;
+        thumbnail?: string;
+    }>;
+}
+
+export interface DraftCourseItem {
+    id: string;
+    title: string;
+    category: string;
+    thumbnail?: string;
+    videoCount: number;
+    updatedAt: string;
+}
+
+export interface DraftCoursePage {
+    total: number;
+    page: number;
+    pageSize: number;
+    list: DraftCourseItem[];
+}
+
+export interface ManageCourseDetail {
+    id: string;
+    title: string;
+    description?: string;
+    category: string;
+    price: number;
+    thumbnail?: string;
+    status?: string;
+    videos?: Array<{
+        id: string;
+        title: string;
+        url: string;
+        duration: string;
+        thumbnail?: string;
+    }>;
+}
+
+export interface CreateCourseResult {
+    courseId: string;
+}
+
+export interface UploadVideoResult {
+    url: string;
+    filename: string;
+}
+
+export interface UploadAvatarResult {
+    url: string;
+    filename: string;
+}
 
 // 课程模块
 export const courseAPI = {
@@ -186,6 +294,65 @@ export const courseAPI = {
     },
 
     getDetail: (courseId: string) => request<CourseVO>(`/courses/${courseId}`),
+
+    create: (data: CreateCoursePayload) =>
+        request<CreateCourseResult>('/courses', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    update: (courseId: string, data: CreateCoursePayload) =>
+        request<void>(`/courses/${courseId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    publish: (courseId: string, data: CreateCoursePayload) =>
+        request<void>(`/courses/${courseId}/publish`, {
+            method: 'POST',
+            body: JSON.stringify({ ...data, publish: true }),
+        }),
+
+    listDrafts: (page = 1, pageSize = 20) =>
+        request<DraftCoursePage>(`/courses/drafts?page=${page}&pageSize=${pageSize}`),
+
+    getForManage: (courseId: string) =>
+        request<ManageCourseDetail>(`/courses/${courseId}/manage`),
+};
+
+// 文件上传
+export const uploadAPI = {
+    uploadVideo: async (file: File): Promise<UploadVideoResult> => {
+        const token = localStorage.getItem('accessToken');
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE_URL}/uploads/video`, {
+            method: 'POST',
+            headers: {
+                ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: formData,
+        });
+
+        return parseApiResponse<UploadVideoResult>(response);
+    },
+
+    uploadAvatar: async (file: File): Promise<UploadAvatarResult> => {
+        const token = localStorage.getItem('accessToken');
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE_URL}/uploads/avatar`, {
+            method: 'POST',
+            headers: {
+                ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: formData,
+        });
+
+        return parseApiResponse<UploadAvatarResult>(response);
+    },
 };
 
 // 视频进度模块
@@ -259,7 +426,7 @@ export const orderAPI = {
 
     getList: (params?: { page?: number; pageSize?: number }) => {
         const query = new URLSearchParams(params as any).toString();
-        return request<OrderListResponse>(`/users/me/orders${query ? `?${query}` : ''}`);
+        return requestV1<OrderListResponse>(`/users/me/orders${query ? `?${query}` : ''}`);
     },
 
     pay: (orderId: string) =>
@@ -268,6 +435,168 @@ export const orderAPI = {
     }),
 
     getPurchasedCourses: () => request<PurchasedCourse[]>('/user/purchased-courses'),
+};
+
+// 管理看板（管理员 / 讲师）
+export interface AdminStats {
+    totalUsers: number;
+    totalCourses: number;
+    monthlyRevenue: number;
+    aiInteractionRate: number;
+    userGrowth: number;
+    revenueGrowth: number;
+}
+
+export interface AdminCourseItem {
+    id: string;
+    title: string;
+    category: string;
+    status: string;
+    revenue: number;
+    studentsCount: number;
+    createdAt: string;
+}
+
+export interface AdminCoursePage {
+    total: number;
+    page: number;
+    pageSize: number;
+    list: AdminCourseItem[];
+}
+
+export interface LearningTrend {
+    aiQuestions: number;
+    regularDanmaku: number;
+    dailyStats?: Array<{
+        date: string;
+        studyMinutes: number;
+        activeUsers: number;
+        aiInteractions: number;
+    }>;
+}
+
+export const adminAPI = {
+    getStats: () => request<AdminStats>('/admin/stats'),
+    listCourses: (page = 1, pageSize = 20) =>
+        request<AdminCoursePage>(`/admin/courses?page=${page}&pageSize=${pageSize}`),
+    getLearningTrend: (days = 30) =>
+        request<LearningTrend>(`/admin/learning-trend?days=${days}`),
+};
+
+// 学员看板
+export interface LearnerDashboardStats {
+    learnedCoursesCount: number;
+    aiInteractionRate: number;
+}
+
+export interface LearnerCourseItem {
+    id: string;
+    title: string;
+    thumbnail: string;
+    category: string;
+    status: string;
+    progressPercent: number;
+    purchasedAt: string;
+}
+
+export interface LearnerCoursePage {
+    total: number;
+    page: number;
+    pageSize: number;
+    list: LearnerCourseItem[];
+}
+
+export interface LearnerLearningTrend {
+    completionRate: number;
+    aiQuestionCount: number;
+    regularDanmaku: number;
+}
+
+export const dashboardAPI = {
+    getStats: () => request<LearnerDashboardStats>('/dashboard/stats'),
+    listCourses: (page = 1, pageSize = 20) =>
+        request<LearnerCoursePage>(`/dashboard/courses?page=${page}&pageSize=${pageSize}`),
+    getLearningTrend: (days = 30) =>
+        request<LearnerLearningTrend>(`/dashboard/learning-trend?days=${days}`),
+};
+
+// 学习路径
+export interface LearningPathSummary {
+    id: string;
+    title: string;
+    description: string;
+    thumbnail: string;
+    category: string;
+    estimatedHours: number;
+    difficulty: string;
+    stageCount: number;
+    overallProgress?: number;
+    hasStarted: boolean;
+}
+
+export interface PathNode {
+    id: string;
+    nodeOrder: number;
+    title: string;
+    courseId: string;
+    videoId: string;
+    courseTitle: string;
+    status: 'not_started' | 'in_progress' | 'completed' | 'skipped';
+    progressPercent: number;
+    locked: boolean;
+}
+
+export interface PathStage {
+    id: string;
+    stageOrder: number;
+    title: string;
+    description: string;
+    skipped: boolean;
+    stageProgressPercent: number;
+    nodes: PathNode[];
+}
+
+export interface LearningPathDetail {
+    id: string;
+    title: string;
+    description: string;
+    thumbnail: string;
+    category: string;
+    estimatedHours: number;
+    difficulty: string;
+    overallProgress: number;
+    startStageOrder: number;
+    skippedStageOrders: number[];
+    assessmentSummary?: string;
+    needsAssessment: boolean;
+    stages: PathStage[];
+}
+
+export interface PathAssessmentQuestion {
+    id: string;
+    stageOrder: number;
+    question: string;
+    options: string[];
+}
+
+export interface PathAssessmentResult {
+    totalScore: number;
+    startStageOrder: number;
+    skippedStageOrders: number[];
+    summary: string;
+    aiRecommendation: string;
+}
+
+export const learningPathAPI = {
+    list: () => request<LearningPathSummary[]>('/learning-paths'),
+    getDetail: (pathId: string) => request<LearningPathDetail>(`/learning-paths/${pathId}`),
+    getAssessment: (pathId: string) =>
+        request<PathAssessmentQuestion[]>(`/learning-paths/${pathId}/assessment`),
+    submitAssessment: (pathId: string, answers: Record<string, number>) =>
+        request<PathAssessmentResult>(`/learning-paths/${pathId}/assessment`, {
+            method: 'POST',
+            body: JSON.stringify({ answers }),
+        }),
 };
 
 // 排行榜模块
