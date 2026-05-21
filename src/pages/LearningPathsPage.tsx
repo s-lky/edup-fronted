@@ -29,11 +29,11 @@ export default function LearningPathsPage() {
         <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-8"
+            className="space-y-8 text-base"
         >
             <header>
-                <h1 className="text-2xl font-bold italic text-slate-900">学习路径</h1>
-                <p className="mt-1 text-sm text-slate-500">
+                <h1 className="text-3xl font-bold italic text-slate-900">学习路径</h1>
+                <p className="mt-2 text-base text-slate-500">
                     选择系统化成长路线，AI 测评后可生成专属定制路径
                 </p>
             </header>
@@ -57,30 +57,30 @@ export default function LearningPathsPage() {
                                 alt=""
                                 className="h-full w-36 shrink-0 object-cover md:w-44"
                             />
-                            <div className="flex flex-1 flex-col p-5">
-                                <p className="mb-2 flex items-center gap-2 text-xs font-bold text-indigo-600">
-                                    <Map size={16} />
+                            <div className="flex flex-1 flex-col p-6">
+                                <p className="mb-2 flex items-center gap-2 text-sm font-bold text-indigo-600">
+                                    <Map size={18} />
                                     {path.category}
                                 </p>
-                                <h2 className="mb-2 text-lg font-bold text-slate-900 group-hover:text-indigo-600">
+                                <h2 className="mb-2 text-xl font-bold text-slate-900 group-hover:text-indigo-600">
                                     {path.title}
                                 </h2>
-                                <p className="mb-4 line-clamp-2 flex-1 text-xs text-slate-500">
+                                <p className="mb-4 line-clamp-2 flex-1 text-sm leading-relaxed text-slate-500">
                                     {path.description}
                                 </p>
-                                <p className="flex gap-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                <p className="flex gap-4 text-xs font-bold uppercase tracking-wider text-slate-400">
                                     <span className="flex items-center gap-1">
-                                        <Layers size={12} />
+                                        <Layers size={14} />
                                         {path.stageCount} 阶段
                                     </span>
                                     <span className="flex items-center gap-1">
-                                        <Clock size={12} />
+                                        <Clock size={14} />
                                         {path.estimatedHours}h
                                     </span>
                                 </p>
                                 {path.hasStarted ? (
                                     <motion.div className="mt-3">
-                                        <p className="mb-1 flex justify-between text-xs">
+                                        <p className="mb-1 flex justify-between text-sm">
                                             <span className="text-slate-500">学习进度</span>
                                             <span className="font-bold text-indigo-600">
                                                 {path.overallProgress ?? 0}%
@@ -94,12 +94,12 @@ export default function LearningPathsPage() {
                                         </div>
                                     </motion.div>
                                 ) : null}
-                                <p className="mt-4 flex items-center justify-between text-xs font-bold text-indigo-600">
+                                <p className="mt-4 flex items-center justify-between text-sm font-bold text-indigo-600">
                                     <span className="flex items-center gap-1">
-                                        <Sparkles size={14} />
+                                        <Sparkles size={16} />
                                         {path.hasStarted ? '继续学习' : '开始测评'}
                                     </span>
-                                    <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-500" />
+                                    <ChevronRight size={20} className="text-slate-300 group-hover:text-indigo-500" />
                                 </p>
                             </div>
                         </Link>
@@ -108,7 +108,7 @@ export default function LearningPathsPage() {
             </div>
 
             {!loading && paths.length === 0 && !error ? (
-                <p className="py-12 text-center text-slate-500">暂无学习路径，请先执行数据库初始化脚本</p>
+                <p className="py-12 text-center text-base text-slate-500">暂无学习路径，请先执行数据库初始化脚本</p>
             ) : null}
         </motion.div>
     );

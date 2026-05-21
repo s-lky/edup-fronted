@@ -13,11 +13,11 @@ export default function CoursesPage() {
         <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
+            className="space-y-6 text-base"
         >
             <div>
-                <h1 className="text-2xl font-bold italic text-slate-900">课程专区</h1>
-                <p className="mt-1 text-sm text-slate-500">
+                <h1 className="text-3xl font-bold italic text-slate-900">课程专区</h1>
+                <p className="mt-2 text-base text-slate-500">
                     {activeKeyword
                         ? `搜索「${activeKeyword}」的结果`
                         : '浏览全部精选课程，开启你的学习之旅'}

@@ -66,20 +66,20 @@ export default function LearningPathDetailPage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <Link
                 to="/learning-paths"
-                className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-indigo-600"
+                className="inline-flex items-center gap-1 text-base font-medium text-slate-500 hover:text-indigo-600"
             >
-                <ArrowLeft size={16} /> 返回路径列表
+                <ArrowLeft size={18} /> 返回路径列表
             </Link>
 
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold italic text-slate-900">{detail.title}</h1>
-                    <p className="mt-2 max-w-2xl text-sm text-slate-500">{detail.description}</p>
+                    <h1 className="text-3xl font-bold italic text-slate-900">{detail.title}</h1>
+                    <p className="mt-2 max-w-2xl text-base text-slate-500">{detail.description}</p>
                 </div>
                 <button
                     type="button"
                     onClick={() => setShowAssessment(true)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-100"
+                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-base font-bold text-indigo-700 hover:bg-indigo-100"
                 >
                     <Sparkles size={16} />
                     重新测评 / 定制路径
@@ -94,18 +94,18 @@ export default function LearningPathDetailPage() {
                 >
                     <div className="mb-2 flex items-center gap-2 text-indigo-700">
                         <Sparkles size={18} />
-                        <span className="font-bold">AI 定制建议</span>
+                        <span className="text-base font-bold">AI 定制建议</span>
                     </div>
-                    <p className="text-sm text-slate-700">
+                    <p className="text-base text-slate-700">
                         {aiResult?.summary ?? detail.assessmentSummary}
                     </p>
                     {aiResult?.aiRecommendation && (
-                        <p className="mt-2 text-sm font-medium text-indigo-600">
+                        <p className="mt-2 text-base font-medium text-indigo-600">
                             {aiResult.aiRecommendation}
                         </p>
                     )}
                     {aiResult && aiResult.skippedStageOrders.length > 0 && (
-                        <p className="mt-2 text-xs text-slate-500">
+                        <p className="mt-2 text-sm text-slate-500">
                             已跳过阶段：{aiResult.skippedStageOrders.join('、')}，从阶段
                             {aiResult.startStageOrder} 开始学习
                         </p>

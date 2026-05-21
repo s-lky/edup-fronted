@@ -141,6 +141,21 @@ async function request<T>(
     return parseApiResponse<T>(response);
 }
 
+async function parseApiResponseVoid(response: Response): Promise<void> {
+    const result: ApiResponse<unknown> = await response.json().catch(() => ({
+        code: response.status,
+        message: '请求失败',
+        data: null,
+    }));
+
+    if (!response.ok) {
+        throw new Error(result.message || `HTTP ${response.status}`);
+    }
+    if (result.code !== 200) {
+        throw new Error(result.message || '请求失败');
+    }
+}
+
 // /api/v1/* 请求
 async function requestV1<T>(
     endpoint: string,
@@ -158,6 +173,24 @@ async function requestV1<T>(
     });
 
     return parseApiResponse<T>(response);
+}
+
+async function requestV1Void(
+    endpoint: string,
+    options: RequestInit = {},
+): Promise<void> {
+    const token = localStorage.getItem('accessToken');
+
+    const response = await fetch(`${API_V1_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+            ...options.headers,
+        },
+    });
+
+    return parseApiResponseVoid(response);
 }
 
 // 认证模块
@@ -213,12 +246,40 @@ export const authAPI = {
         }),
 
     getCurrentUser: () => request<UserInfo>('/auth/me'),
+
+    forgotPassword: async (data: {
+        username: string;
+        email: string;
+        newPassword: string;
+    }): Promise<void> => {
+        const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+
+        const result: ApiResponse<null> = await response.json().catch(() => ({
+            code: response.status,
+            message: '密码重置失败',
+            data: null,
+        }));
+
+        if (!response.ok || result.code !== 200) {
+            throw new Error(result.message || '密码重置失败');
+        }
+    },
 };
 
 // 用户资料模块
 export const userAPI = {
     updateProfile: (data: { nickname?: string; avatarUrl?: string }) =>
         requestV1('/users/me', {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        }),
+
+    changePassword: (data: { currentPassword: string; newPassword: string }) =>
+        requestV1Void('/users/me/password', {
             method: 'PATCH',
             body: JSON.stringify(data),
         }),
@@ -599,12 +660,40 @@ export const learningPathAPI = {
         }),
 };
 
+export interface RankingItem {
+    rank: number;
+    userId: string;
+    nickname: string;
+    avatarUrl: string;
+    score: number;
+    studyMinutes: number;
+    completedVideos: number;
+    streakDays: number;
+}
+
+export interface MyRankInfo {
+    rank: number;
+    score: number;
+    percentile: number;
+}
+
 // 排行榜模块
 export const rankingAPI = {
     getList: (params?: { type?: 'weekly' | 'monthly' | 'all'; limit?: number }) => {
-        const query = new URLSearchParams(params as any).toString();
-        return request(`/rankings${query ? `?${query}` : ''}`);
+        const query = new URLSearchParams(
+            Object.entries(params ?? {}).reduce(
+                (acc, [k, v]) => {
+                    if (v !== undefined && v !== null) acc[k] = String(v);
+                    return acc;
+                },
+                {} as Record<string, string>,
+            ),
+        ).toString();
+        return request<RankingItem[]>(`/rankings${query ? `?${query}` : ''}`);
     },
 
-    getMyRank: () => request('/rankings/my-rank'),
+    getMyRank: (type?: 'weekly' | 'monthly' | 'all') => {
+        const q = type ? `?type=${type}` : '';
+        return request<MyRankInfo>(`/rankings/my-rank${q}`);
+    },
 };

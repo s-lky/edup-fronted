@@ -121,11 +121,11 @@ export default function CourseListSection({
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 text-base">
             <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                <h2 className="flex items-center gap-2 text-xl font-bold italic text-slate-800">
+                <h2 className="flex items-center gap-2 text-2xl font-bold italic text-slate-800">
                     精选课程专区
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-normal not-italic text-slate-500">
+                    <span className="rounded bg-slate-100 px-2.5 py-0.5 text-sm font-normal not-italic text-slate-500">
                         最新更新
                     </span>
                 </h2>
@@ -136,7 +136,7 @@ export default function CourseListSection({
                             type="button"
                             onClick={() => setSelectedCategory(t)}
                             className={cn(
-                                'text-sm font-medium uppercase tracking-wider transition-colors',
+                                'text-base font-medium uppercase tracking-wider transition-colors',
                                 selectedCategory === t
                                     ? 'font-bold text-indigo-600'
                                     : 'text-slate-500 hover:text-indigo-600',
@@ -152,7 +152,7 @@ export default function CourseListSection({
                 <div className="flex items-center justify-center py-16">
                     <div className="flex flex-col items-center gap-4">
                         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-                        <p className="text-sm text-slate-500">正在加载课程...</p>
+                        <p className="text-base text-slate-500">正在加载课程...</p>
                     </div>
                 </div>
             )}
@@ -163,7 +163,7 @@ export default function CourseListSection({
                     <button
                         type="button"
                         onClick={() => window.location.reload()}
-                        className="mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                        className="mt-3 text-base font-semibold text-indigo-600 hover:text-indigo-700"
                     >
                         重新加载
                     </button>
@@ -176,7 +176,7 @@ export default function CourseListSection({
                     <p className="mb-2 font-medium text-slate-600">
                         {activeKeyword ? '没有找到对应课程' : '暂无课程数据'}
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-sm text-slate-400">
                         {activeKeyword
                             ? '请尝试其他关键词，或前往课程专区浏览全部'
                             : '请稍后再来，或联系管理员添加课程'}
@@ -203,34 +203,34 @@ export default function CourseListSection({
                                     onError={handleCourseThumbError}
                                 />
                                 <div className="absolute inset-0 flex items-end bg-gradient-to-t from-slate-900/60 to-transparent p-4 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <span className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white backdrop-blur-sm">
-                                        开始学习 <ChevronRight size={14} />
+                                    <span className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-sm font-bold uppercase tracking-widest text-white backdrop-blur-sm">
+                                        开始学习 <ChevronRight size={16} />
                                     </span>
                                 </div>
-                                <div className="absolute left-3 top-3 rounded bg-white/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-tighter text-indigo-600 shadow-sm">
+                                <div className="absolute left-3 top-3 rounded bg-white/90 px-2.5 py-0.5 text-xs font-black uppercase tracking-tighter text-indigo-600 shadow-sm">
                                     {course.category}
                                 </div>
                             </div>
 
                             <div className="flex flex-1 flex-col p-5">
-                                <h3 className="mb-2 line-clamp-1 text-lg font-bold italic leading-tight text-slate-800 transition-colors group-hover:text-indigo-600">
+                                <h3 className="mb-2 line-clamp-1 text-xl font-bold italic leading-tight text-slate-800 transition-colors group-hover:text-indigo-600">
                                     {course.title}
                                 </h3>
-                                <p className="mb-6 line-clamp-2 text-xs leading-relaxed text-slate-500">
+                                <p className="mb-6 line-clamp-2 text-sm leading-relaxed text-slate-500">
                                     {course.description}
                                 </p>
                                 <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-4">
-                                    <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                    <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-slate-400">
                                         <span className="flex items-center gap-1">
-                                            <Users size={12} />
+                                            <Users size={14} />
                                             {course.studentsCount || 0}
                                         </span>
                                         <span className="flex items-center gap-1 text-amber-500">
-                                            <Star size={12} fill="currentColor" />
+                                            <Star size={14} fill="currentColor" />
                                             {course.rating || 0}
                                         </span>
                                     </div>
-                                    <div className="text-lg font-black text-indigo-600">
+                                    <div className="text-xl font-black text-indigo-600">
                                         ￥{course.price || 0}
                                     </div>
                                 </div>
@@ -244,7 +244,7 @@ export default function CourseListSection({
                 <div className="flex justify-center pt-2">
                     <Link
                         to="/courses"
-                        className="inline-flex items-center gap-1 text-sm font-bold text-indigo-600 hover:underline underline-offset-4"
+                        className="inline-flex items-center gap-1 text-base font-bold text-indigo-600 hover:underline underline-offset-4"
                     >
                         查看全部课程 <ChevronRight size={16} />
                     </Link>

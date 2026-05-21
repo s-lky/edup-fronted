@@ -247,7 +247,7 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="space-y-8 pb-20">
+        <div className="space-y-8 pb-20 text-base">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -257,10 +257,10 @@ export default function AdminPage() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                 >
-                    <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+                    <h1 className="text-4xl font-bold tracking-tight text-gray-900">
                         {isManagementView ? '管理看板' : '学习看板'}
                     </h1>
-                    <p className="mt-1 text-gray-500">
+                    <p className="mt-2 text-base text-gray-500">
                         {isManagementView
                             ? '欢迎回来，讲师助手已为您同步最新数据'
                             : '欢迎回来，以下是你的学习概况'}
@@ -306,10 +306,10 @@ export default function AdminPage() {
                             animate={{ opacity: 1 }}
                             transition={{ delay: i * 0.1 + 0.1 }}
                         >
-                            <p className="mb-1 text-sm font-medium text-gray-400">{stat.label}</p>
-                            <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                            <p className="mb-1 text-base font-medium text-gray-400">{stat.label}</p>
+                            <p className="text-4xl font-bold text-gray-900">{stat.value}</p>
                             {isManagementView && 'growth' in stat && isAdmin && (
-                                <div className="mt-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-green-600">
+                                <div className="mt-2 flex items-center gap-1 text-xs font-bold uppercase tracking-widest text-green-600">
                                     <ShieldCheck size={12} />
                                     {formatGrowth((stat as { growth: number }).growth)}
                                 </div>
@@ -325,10 +325,10 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
                 <div className="space-y-6 lg:col-span-2">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold text-gray-900">{courseSectionTitle}</h2>
+                        <h2 className="text-2xl font-bold text-gray-900">{courseSectionTitle}</h2>
                         <button
                             type="button"
-                            className="text-sm font-bold text-indigo-600 underline-offset-4 hover:underline"
+                            className="text-base font-bold text-indigo-600 underline-offset-4 hover:underline"
                         >
                             查看全部
                         </button>
@@ -337,7 +337,7 @@ export default function AdminPage() {
                     <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
                         <div
                             className={cn(
-                                'grid border-b border-gray-100 bg-gray-50 p-4 text-[10px] font-black uppercase tracking-widest text-gray-400',
+                                'grid border-b border-gray-100 bg-gray-50 p-4 text-xs font-black uppercase tracking-widest text-gray-400',
                                 isManagementView ? 'grid-cols-6' : 'grid-cols-5',
                             )}
                         >
@@ -367,10 +367,10 @@ export default function AdminPage() {
                                                   alt=""
                                               />
                                               <div>
-                                                  <h4 className="line-clamp-1 text-sm font-bold text-gray-900">
+                                                  <h4 className="line-clamp-1 text-base font-bold text-gray-900">
                                                       {course.title}
                                                   </h4>
-                                                  <p className="mt-0.5 text-xs font-medium text-indigo-600">
+                                                  <p className="mt-0.5 text-sm font-medium text-indigo-600">
                                                       {course.category}
                                                   </p>
                                               </div>
@@ -378,7 +378,7 @@ export default function AdminPage() {
                                           <div className="text-center">
                                               <span
                                                   className={cn(
-                                                      'rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider',
+                                                      'rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider',
                                                       COURSE_STATUS_STYLE[course.status] ??
                                                           'bg-gray-50 text-gray-500',
                                                   )}
@@ -386,7 +386,7 @@ export default function AdminPage() {
                                                   {COURSE_STATUS_LABEL[course.status] ?? course.status}
                                               </span>
                                           </div>
-                                          <div className="text-center text-sm font-bold text-gray-900">
+                                          <div className="text-center text-base font-bold text-gray-900">
                                               ¥{formatNumber(Number(course.revenue ?? 0))}
                                           </div>
                                           <div className="flex items-center justify-end gap-2 text-right text-gray-400">
@@ -423,10 +423,10 @@ export default function AdminPage() {
                                                   alt=""
                                               />
                                               <div>
-                                                  <h4 className="line-clamp-1 text-sm font-bold text-gray-900">
+                                                  <h4 className="line-clamp-1 text-base font-bold text-gray-900">
                                                       {course.title}
                                                   </h4>
-                                                  <p className="mt-0.5 text-xs font-medium text-indigo-600">
+                                                  <p className="mt-0.5 text-sm font-medium text-indigo-600">
                                                       {course.category}
                                                   </p>
                                               </div>
@@ -434,7 +434,7 @@ export default function AdminPage() {
                                           <div className="text-center">
                                               <span
                                                   className={cn(
-                                                      'rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider',
+                                                      'rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider',
                                                       COURSE_STATUS_STYLE[course.status] ??
                                                           'bg-gray-50 text-gray-500',
                                                   )}
@@ -442,7 +442,7 @@ export default function AdminPage() {
                                                   {COURSE_STATUS_LABEL[course.status] ?? course.status}
                                               </span>
                                           </div>
-                                          <div className="text-center text-sm font-bold text-gray-900">
+                                          <div className="text-center text-base font-bold text-gray-900">
                                               {course.progressPercent}%
                                           </div>
                                           <div className="flex items-center justify-end gap-2 text-gray-400">
@@ -457,7 +457,7 @@ export default function AdminPage() {
                                       </div>
                                   ))}
                             {courseCount === 0 && (
-                                <div className="p-8 text-center text-sm text-gray-400">
+                                <div className="p-8 text-center text-base text-gray-400">
                                     {isManagementView ? '暂无课程' : '暂无已学习课程，去学习中心选课吧'}
                                 </div>
                             )}
@@ -466,7 +466,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-6">
-                    <h2 className="text-xl font-bold text-gray-900">学习效率趋势</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">学习效率趋势</h2>
                     <div className="rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-sm">
                         <div className="relative flex aspect-square items-center justify-center">
                             <svg className="h-48 w-48 -rotate-90">
@@ -489,10 +489,10 @@ export default function AdminPage() {
                                 />
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-4xl font-black text-gray-900">
+                                <span className="text-5xl font-black text-gray-900">
                                     {completionRate}%
                                 </span>
-                                <span className="mt-1 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                <span className="mt-1 text-xs font-black uppercase tracking-widest text-gray-400">
                                     {isManagementView ? '周平均反馈率' : '课程完成率'}
                                 </span>
                             </div>
@@ -500,20 +500,20 @@ export default function AdminPage() {
 
                         <div className="mt-8 space-y-4 text-left">
                             <div className="flex items-center justify-between">
-                                <motion.div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                                <motion.div className="flex items-center gap-2 text-base font-bold text-gray-700">
                                     <motion.div className="h-3 w-3 rounded-full bg-indigo-600" />
                                     AI 辅助提问
                                 </motion.div>
-                                <span className="font-mono text-sm font-bold text-gray-900">
+                                <span className="font-mono text-base font-bold text-gray-900">
                                     {formatNumber(trendAiCount)} 次
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                                <div className="flex items-center gap-2 text-base font-bold text-gray-700">
                                     <div className="h-3 w-3 rounded-full bg-gray-200" />
                                     常规弹幕
                                 </div>
-                                <span className="font-mono text-sm font-bold text-gray-900">
+                                <span className="font-mono text-base font-bold text-gray-900">
                                     {formatNumber(trendDanmakuCount)} 次
                                 </span>
                             </div>
@@ -522,7 +522,7 @@ export default function AdminPage() {
                         {isManagementView && (
                             <button
                                 type="button"
-                                className="mt-10 flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-50 py-4 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-100"
+                                className="mt-10 flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-50 py-4 text-base font-bold text-gray-600 transition-colors hover:bg-gray-100"
                             >
                                 下载完整报表 <ChevronRight size={16} />
                             </button>

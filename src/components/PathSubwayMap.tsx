@@ -27,8 +27,8 @@ export default function PathSubwayMap({ stages, overallProgress }: PathSubwayMap
         >
             <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-purple-50 p-6">
                 <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-700">路径总完成度</span>
-                    <span className="text-2xl font-black text-indigo-600">{overallProgress}%</span>
+                    <span className="text-base font-bold text-slate-700">路径总完成度</span>
+                    <span className="text-3xl font-black text-indigo-600">{overallProgress}%</span>
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-white shadow-inner">
                     <motion.div
@@ -74,20 +74,20 @@ export default function PathSubwayMap({ stages, overallProgress }: PathSubwayMap
                                     ) : stage.stageProgressPercent >= 100 ? (
                                         <Check className="h-7 w-7" />
                                     ) : (
-                                        <span className="text-lg font-black text-indigo-600">
+                                        <span className="text-xl font-black text-indigo-600">
                                             {stage.stageOrder}
                                         </span>
                                     )}
-                                    <span className="mt-0.5 text-[9px] font-bold uppercase text-slate-500">
+                                    <span className="mt-0.5 text-xs font-bold uppercase text-slate-500">
                                         {stage.stageProgressPercent}%
                                     </span>
                                 </div>
 
-                                <h3 className="mt-3 line-clamp-2 text-center text-xs font-bold text-slate-800">
+                                <h3 className="mt-3 line-clamp-2 text-center text-sm font-bold text-slate-800">
                                     {stage.title}
                                 </h3>
                                 {stage.skipped && (
-                                    <span className="mt-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                    <span className="mt-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
                                         AI 已跳过
                                     </span>
                                 )}
@@ -134,13 +134,13 @@ export default function PathSubwayMap({ stages, overallProgress }: PathSubwayMap
                                                     )}
                                                 </span>
                                                 <span className="min-w-0 flex-1 block">
-                                                    <span className="line-clamp-2 block text-xs font-bold text-slate-800">
+                                                    <span className="line-clamp-2 block text-sm font-bold text-slate-800">
                                                         {node.title}
                                                     </span>
-                                                    <span className="mt-0.5 block text-[10px] text-slate-500">
+                                                    <span className="mt-0.5 block text-xs text-slate-500">
                                                         {node.courseTitle}
                                                     </span>
-                                                    <span className="mt-1 block text-[10px] font-bold text-indigo-600">
+                                                    <span className="mt-1 block text-xs font-bold text-indigo-600">
                                                         {STATUS_LABEL[node.status]}
                                                         {node.status === 'in_progress' &&
                                                             ` ${node.progressPercent}%`}

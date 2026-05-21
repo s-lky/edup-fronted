@@ -20,6 +20,7 @@ import RankingsPage from './pages/RankingsPage';
 import UserCenterPage from './pages/UserCenterPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/registerPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 
 // 路由守卫组件
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -71,7 +72,7 @@ function Navbar(){
     const isProfileActive = location.pathname === '/profile';
 
     // 如果在登录/注册页面，不显示导航栏
-    if (location.pathname === '/login' || location.pathname === '/register') {
+    if (location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password') {
         return null;
     }
 
@@ -228,7 +229,7 @@ function Footer(){
     const location = useLocation();
     
     // 登录/注册页面不显示页脚
-    if (location.pathname === '/login' || location.pathname === '/register') {
+    if (location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password') {
         return null;
     }
     
@@ -266,6 +267,7 @@ function AppShell(){
                     <Routes>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
+                        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                         <Route 
                             path="/" 
                             element={

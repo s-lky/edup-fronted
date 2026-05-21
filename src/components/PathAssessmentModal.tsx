@@ -81,12 +81,12 @@ export default function PathAssessmentModal({
                         <div>
                             <div className="mb-2 flex items-center gap-2 text-indigo-600">
                                 <Sparkles size={18} />
-                                <span className="text-xs font-bold uppercase tracking-widest">
+                                <span className="text-sm font-bold uppercase tracking-widest">
                                     AI 入学测评
                                 </span>
                             </div>
-                            <h2 className="text-xl font-bold text-slate-900">{pathTitle}</h2>
-                            <p className="mt-1 text-sm text-slate-500">
+                            <h2 className="text-2xl font-bold text-slate-900">{pathTitle}</h2>
+                            <p className="mt-1 text-base text-slate-500">
                                 完成 {questions.length} 道题，AI 将为你定制专属学习路径
                             </p>
                         </div>
@@ -106,7 +106,7 @@ export default function PathAssessmentModal({
                     )}
 
                     {error && (
-                        <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
+                        <div className="mb-4 rounded-lg bg-red-50 p-3 text-base text-red-600">{error}</div>
                     )}
 
                     {!loading && current && (
@@ -122,10 +122,10 @@ export default function PathAssessmentModal({
                                     />
                                 ))}
                             </div>
-                            <p className="mb-1 text-xs font-bold text-indigo-600">
+                            <p className="mb-1 text-sm font-bold text-indigo-600">
                                 第 {step + 1} / {questions.length} 题 · 阶段{current.stageOrder}
                             </p>
-                            <h3 className="mb-4 text-lg font-bold text-slate-800">{current.question}</h3>
+                            <h3 className="mb-4 text-xl font-bold text-slate-800">{current.question}</h3>
                             <div className="space-y-3">
                                 {current.options.map((opt, idx) => (
                                     <button
@@ -135,7 +135,7 @@ export default function PathAssessmentModal({
                                             setAnswers((prev) => ({ ...prev, [current.id]: idx }))
                                         }
                                         className={cn(
-                                            'w-full rounded-xl border-2 p-4 text-left text-sm font-medium transition-all',
+                                            'w-full rounded-xl border-2 p-4 text-left text-base font-medium transition-all',
                                             answers[current.id] === idx
                                                 ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
                                                 : 'border-slate-200 hover:border-indigo-300',
@@ -150,7 +150,7 @@ export default function PathAssessmentModal({
                                     <button
                                         type="button"
                                         onClick={() => setStep((s) => s - 1)}
-                                        className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-600"
+                                        className="flex-1 rounded-xl border border-slate-200 py-3 text-base font-bold text-slate-600"
                                     >
                                         上一题
                                     </button>
@@ -160,16 +160,16 @@ export default function PathAssessmentModal({
                                         type="button"
                                         disabled={answers[current.id] === undefined}
                                         onClick={() => setStep((s) => s + 1)}
-                                        className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                        className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-600 py-3 text-base font-bold text-white disabled:opacity-50"
                                     >
-                                        下一题 <ChevronRight size={16} />
+                                        下一题 <ChevronRight size={18} />
                                     </button>
                                 ) : (
                                     <button
                                         type="button"
                                         disabled={submitting}
                                         onClick={handleSubmit}
-                                        className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                        className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-indigo-600 py-3 text-base font-bold text-white disabled:opacity-50"
                                     >
                                         {submitting ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />

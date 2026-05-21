@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
-import {User, Clock, BookOpen, Receipt, ChevronRight, Camera, RotateCcw, Sparkles, Trophy, Upload } from 'lucide-react';
+import {User, Clock, BookOpen, Receipt, ChevronRight, Camera, RotateCcw, Sparkles, Trophy, Upload, KeyRound } from 'lucide-react';
+import { orderAPI, progressAPI, uploadAPI } from '../api/index';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import { motion } from 'motion/react';
 import { useUserProfile } from '../context/UserProfileContext';
 import { MOCK_USER } from '../mockData';
 import { cn } from '../lib/utils';
-import { orderAPI, progressAPI, uploadAPI } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 
 const AVATAR_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
@@ -76,6 +77,8 @@ const [learningStats, setLearningStats] = useState({
     completedVideos: MOCK_USER.learningStats.completedVideos
 });
 const [loading, setLoading] = useState(true);
+const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+const [passwordSavedHint, setPasswordSavedHint] = useState(false);
 
 useEffect(() => {
     setDraftName(profile.displayName);
@@ -282,27 +285,39 @@ return (
                 <p className="text-center text-xs font-bold uppercase tracking-widest text-slate-400 lg:text-left">
                     选择预设或上传图片，确认后保存
                 </p>
-                <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            disabled={uploadingAvatar}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                        >
+                            <Upload size={16} />
+                            {uploadingAvatar ? '上传中…' : '上传头像'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPasswordModalOpen(true)}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                        >
+                            <KeyRound size={16} />
+                            修改密码
+                        </button>
+                    </div>
                     <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    disabled={uploadingAvatar}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                        type="button"
+                        onClick={handleSaveAvatar}
+                        disabled={!hasAvatarChanges || savingAvatar || uploadingAvatar}
+                        className="button-polish w-full px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                     >
-                    <Upload size={16} />
-                    {uploadingAvatar ? '上传中…' : '上传头像'}
-                    </button>
-                    <button
-                    type="button"
-                    onClick={handleSaveAvatar}
-                    disabled={!hasAvatarChanges || savingAvatar || uploadingAvatar}
-                    className="button-polish px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                    {savingAvatar ? '保存中…' : '保存头像'}
+                        {savingAvatar ? '保存中…' : '保存头像'}
                     </button>
                 </div>
-                {avatarSavedHint && (
-                    <span className="text-sm font-semibold text-emerald-600">头像已保存</span>
+                {(avatarSavedHint || passwordSavedHint) && (
+                    <span className="text-sm font-semibold text-emerald-600">
+                        {passwordSavedHint ? '密码已更新' : '头像已保存'}
+                    </span>
                 )}
                 {avatarError && (
                     <span className="max-w-[14rem] text-center text-sm text-red-600 lg:text-left">{avatarError}</span>
@@ -385,6 +400,15 @@ return (
             </div>
         </div>
     </motion.section>
+
+    <ChangePasswordModal
+        open={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+        onSuccess={() => {
+            setPasswordSavedHint(true);
+            window.setTimeout(() => setPasswordSavedHint(false), 2000);
+        }}
+    />
 
     <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-4 text-sm text-slate-600">
         <span className="font-bold text-slate-700">账号角色：</span>
