@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿// 视频播放页
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Heart, Play, Maximize, Clock, Loader2, Star, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -6,6 +7,7 @@ import AIAssistant from '../components/AIAssistant';
 import { danmakuAPI, courseAPI } from '../api/index';
 
 interface Course {
+  // 课程基础字段+内嵌视频数组结构
   id: string;
   title: string;
   description: string;
@@ -29,20 +31,27 @@ interface Course {
 export default function PlayerPage() {
   const { courseId, videoId } = useParams();
   const navigate = useNavigate();
+  // 防止重复路由跳转的标记引用
   const redirectOnceRef = useRef(false);
+  // 标签页切换状态（章节 / 详情）
   const [activeTab, setActiveTab] = useState<'chapters' | 'info'>('chapters');
+  // 弹幕输入框内容
   const [danmakuInput, setDanmakuInput] = useState('');
+  // 课程点赞状态
   const [isLiked, setIsLiked] = useState(false);
+  // 课程完整状态
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [videoLoadError, setVideoLoadError] = useState(false);
 
+  // 路由切换重置状态
   useEffect(() => {
     redirectOnceRef.current = false;
     setVideoLoadError(false);
   }, [courseId, videoId]);
 
+  // 请求课程详情数据
   useEffect(() => {
     const fetchCourse = async () => {
       if (!courseId) {
@@ -68,6 +77,7 @@ export default function PlayerPage() {
     fetchCourse();
   }, [courseId]);
 
+  // 路由合法性自动校正
   useEffect(() => {
     if (!course || !courseId || loading || redirectOnceRef.current) return;
     const videos = course.videos ?? [];
@@ -80,6 +90,7 @@ export default function PlayerPage() {
     }
   }, [course, courseId, videoId, loading, navigate]);
 
+  // 获取当前播放视频对象
   const video = course?.videos.find((v) => v.id === videoId);
 
   if (loading) {
@@ -107,6 +118,7 @@ export default function PlayerPage() {
     );
   }
 
+  // 弹幕提交逻辑
   const handleSendDanmaku = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!danmakuInput.trim() || !videoId) return;

@@ -1,4 +1,4 @@
-import { useState, React } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -10,12 +10,14 @@ import {
     type RegisterField,
 } from '../lib/authValidation';
 
+// 复用错误提示组件
 function FieldHint({ show }: { show: boolean }) {
     if (!show) return null;
     return <p className="mt-1 text-sm text-red-600">{FIELD_ERROR_MSG}</p>;
 }
 
 export default function RegisterPage() {
+    // 复用错误提示组件
     const navigate = useNavigate();
     const { login } = useAuth();
 
@@ -26,17 +28,22 @@ export default function RegisterPage() {
         email: '',
         nickname: '',
     });
+    // 记录字段校验失败项
     const [fieldErrors, setFieldErrors] = useState<Partial<Record<RegisterField, boolean>>>({});
+    // 标记输入框是否被操作，控制错误提示时机
     const [touched, setTouched] = useState<Partial<Record<RegisterField, boolean>>>({});
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    // 服务端注册错误文案
     const [error, setError] = useState('');
 
+    // 标记字段已操作
     const markTouched = (field: RegisterField) => {
         setTouched((prev) => ({ ...prev, [field]: true }));
     };
 
+    // 实时同步表单数据，已操作字段边输入边校验
     const updateField = (field: RegisterField, value: string) => {
         const next = { ...formData, [field]: value };
         setFormData(next);
@@ -45,15 +52,18 @@ export default function RegisterPage() {
         }
     };
 
+    // 输入框失焦触发完整表单校验
     const handleBlur = (field: RegisterField) => {
         markTouched(field);
         setFieldErrors(validateRegisterForm(formData));
     };
 
+    // 注册提交核心逻辑
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
+        // 全局校验所有字段
         const errors = validateRegisterForm(formData);
         setFieldErrors(errors);
         setTouched({
@@ -64,6 +74,7 @@ export default function RegisterPage() {
             confirmPassword: true,
         });
 
+         // 校验失败直接拦截
         if (Object.keys(errors).length > 0) {
             return;
         }
@@ -71,6 +82,7 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
+            // 调用注册接口
             const result = await authAPI.register({
                 username: formData.username.trim(),
                 password: formData.password,
@@ -78,6 +90,7 @@ export default function RegisterPage() {
                 nickname: formData.nickname.trim(),
             });
 
+            // 注册成功存入全局登录态
             login(result.token, {
                 id: result.userId,
                 username: formData.username.trim(),
@@ -95,6 +108,7 @@ export default function RegisterPage() {
         }
     };
 
+    // 动态输入框样式
     const inputClass = (field: RegisterField) =>
         `w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all ${
             touched[field] && fieldErrors[field]

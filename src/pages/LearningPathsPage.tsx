@@ -4,11 +4,16 @@ import { Map, Clock, Layers, ChevronRight, Loader2, Sparkles } from 'lucide-reac
 import { motion } from 'motion/react';
 import { learningPathAPI, type LearningPathSummary } from '../api';
 
+// 组件跳转定义
 export default function LearningPathsPage() {
+    // 存储所有学习路径列表数据
     const [paths, setPaths] = useState<LearningPathSummary[]>([]);
+    // 接口请求加载状态
     const [loading, setLoading] = useState(true);
+    // 请求失败错误提示文本
     const [error, setError] = useState('');
 
+    // 页面挂载请求数据
     useEffect(() => {
         learningPathAPI
             .list()
@@ -16,7 +21,7 @@ export default function LearningPathsPage() {
             .catch((e) => setError(e.message || '加载失败'))
             .finally(() => setLoading(false));
     }, []);
-
+    // 加载中兜底页面
     if (loading) {
         return (
             <motion.div className="flex h-[50vh] items-center justify-center">
@@ -31,17 +36,18 @@ export default function LearningPathsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-8 text-base"
         >
+            {/* 头部区域 */}
             <header>
                 <h1 className="text-3xl font-bold italic text-slate-900">学习路径</h1>
                 <p className="mt-2 text-base text-slate-500">
                     选择系统化成长路线，AI 测评后可生成专属定制路径
                 </p>
             </header>
-
+            {/* 错误提示区域 */}
             {error ? (
                 <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-600">{error}</p>
             ) : null}
-
+            {/* 响应式网络卡片列表 */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {paths.map((path, i) => (
                     <motion.article

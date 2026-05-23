@@ -1,6 +1,9 @@
 
-import { useState, React } from 'react';
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+// 图标、动画、工具函数
+// 三层全局状态上下文：登录、个人资料、搜索
+// 所有业务页面页面
 import { BookOpen, Search, Trophy, LayoutDashboard, Menu, X, Loader2, Library, Map } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -26,6 +29,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, isReady } = useAuth();
 
+    // 状态初始化中 → 加载转圈
     if (!isReady) {
         return (
             <div className="flex h-[40vh] items-center justify-center">
@@ -34,10 +38,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         );
     }
 
+     // 未登录 → 强制跳登录页
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
 
+    // 已登录 → 渲染正常页面
     return <>{children}</>;
 }
 
@@ -50,7 +56,7 @@ function Navbar(){
 
     const adminNavLabel =
         user?.role === 'learner' ? '学习看板' : '管理后台';
-
+    // 导航菜单列表
     const navItems = [
         { name:'学习中心', path:'/', icon:BookOpen },
         { name:'成长中心', path:'/rankings', icon:Trophy },

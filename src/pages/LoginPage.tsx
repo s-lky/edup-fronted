@@ -1,4 +1,4 @@
-import { useState, useEffect, React } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -10,31 +10,36 @@ import {
     type LoginField,
 } from '../lib/authValidation';
 
+// 复用错误提示组件-封装统一表单错误小字提示
 function FieldHint({ show }: { show: boolean }) {
     if (!show) return null;
     return <p className="mt-1 text-sm text-red-600">{FIELD_ERROR_MSG}</p>;
 }
 
+// 组件初始化与路由、权限钩子
 export default function LoginPage() {
     const navigate = useNavigate();
     const { login, isAuthenticated, isReady } = useAuth();
+    // isAuthenticated全局登录状态标识，isReady权限上下文初始化完成标记
 
+    // 已登录自动拦截
     useEffect(() => {
         if (isReady && isAuthenticated) {
             navigate('/', { replace: true });
         }
     }, [isReady, isAuthenticated, navigate]);
 
-    const [formData, setFormData] = useState({
-        username: '',
-        password: '',
-    });
+    // 存储用户名、密码输入值
+    const [formData, setFormData] = useState({ username: '', password: '', });
+    // 记录字段校验失败项
     const [fieldErrors, setFieldErrors] = useState<Partial<Record<LoginField, boolean>>>({});
+    // 标记输入框是否被操作、控制错误展示时机
     const [touched, setTouched] = useState<Partial<Record<LoginField, boolean>>>({});
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // 输入框实时更新
     const updateField = (field: LoginField, value: string) => {
         const next = { ...formData, [field]: value };
         setFormData(next);
@@ -43,19 +48,21 @@ export default function LoginPage() {
         }
     };
 
+    // 失焦校验触发
     const handleBlur = (field: LoginField) => {
         setTouched((prev) => ({ ...prev, [field]: true }));
         setFieldErrors(validateLoginForm(formData));
     };
 
+    // 表单提交核心逻辑
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-
+        // 全局校验表单
         const errors = validateLoginForm(formData);
         setFieldErrors(errors);
         setTouched({ username: true, password: true });
-
+        // 校验失败终止提交
         if (Object.keys(errors).length > 0) {
             return;
         }
@@ -63,8 +70,9 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
+            // 调用登录接口
             const result = await authAPI.login(formData.username.trim(), formData.password);
-
+            // 写入全局登录状态
             login(
                 result.token,
                 {
@@ -78,6 +86,7 @@ export default function LoginPage() {
                 result.refreshToken,
             );
 
+            // 跳转首页
             navigate('/');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : '登录失败，请检查用户名和密码');
@@ -86,6 +95,7 @@ export default function LoginPage() {
         }
     };
 
+    // 动态输入框样式
     const inputClass = (field: LoginField) =>
         `w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all ${
             touched[field] && fieldErrors[field]

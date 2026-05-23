@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+// 路由、图标、动画、接口、全局上下文、工具、模拟数据
 import { Link } from 'react-router-dom';
 import {User, Clock, BookOpen, Receipt, ChevronRight, Camera, RotateCcw, Sparkles, Trophy, Upload, KeyRound } from 'lucide-react';
 import { orderAPI, progressAPI, uploadAPI } from '../api/index';
@@ -12,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 const AVATAR_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
+// 预设头像分组
 const AVATAR_PRESETS = [
     { label: '活力', seed: 'Felix' },
     { label: '清新', seed: 'Aneka' },
@@ -21,10 +23,12 @@ const AVATAR_PRESETS = [
     { label: '阳光', seed: 'Coco' },
 ] as const;
 
+// 生成DiceBear卡通头像地址
 function dicebearUrl(seed: string) {
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 }
 
+// 分钟换算 时:分 展示
 function formatStudyMinutes(total: number) {
     const h = Math.floor(total / 60);
     const m = total % 60;
@@ -33,12 +37,14 @@ function formatStudyMinutes(total: number) {
     return `${h} 小时 ${m} 分钟`;
 }
 
+// 角色枚举转中文文案
 const roleLabel: Record<string, string> = {
     learner: '学员',
     instructor: '讲师',
     admin: '管理员',
 };
 
+// 业务数据类型
 interface PurchasedCourse {
     id: string;
     title: string;
@@ -59,27 +65,37 @@ interface OrderItem {
 }
 
 export default function UserCenterPage() {
+// 全局用户、个人资料上下文
 const { user } = useAuth();
 const { profile, setProfile, resetProfile, loading: profileLoading } = useUserProfile();
+// 权限判断
 const isLearner = !user || user.role === 'learner';
+// 编辑草稿态
 const [draftName, setDraftName] = useState(profile.displayName);
 const [draftAvatarUrl, setDraftAvatarUrl] = useState(profile.avatarUrl);
+// 提示、错误、加载状态
 const [savedHint, setSavedHint] = useState(false);
 const [avatarSavedHint, setAvatarSavedHint] = useState(false);
 const [avatarError, setAvatarError] = useState('');
 const [savingAvatar, setSavingAvatar] = useState(false);
 const [uploadingAvatar, setUploadingAvatar] = useState(false);
+// DOM引用、隐藏文件上传按钮
 const avatarInputRef = useRef<HTMLInputElement>(null);
+// 业务列表数据
 const [purchasedCourses, setPurchasedCourses] = useState<PurchasedCourse[]>([]);
 const [myOrders, setMyOrders] = useState<OrderItem[]>([]);
+// 学习统计数据
 const [learningStats, setLearningStats] = useState({
     totalMinutes: MOCK_USER.learningStats.totalMinutes,
     completedVideos: MOCK_USER.learningStats.completedVideos
 });
+// 页面全局加载
 const [loading, setLoading] = useState(true);
+// 修改密码弹窗状态
 const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 const [passwordSavedHint, setPasswordSavedHint] = useState(false);
 
+//  监听资料同步副作用
 useEffect(() => {
     setDraftName(profile.displayName);
 }, [profile.displayName]);
@@ -88,18 +104,21 @@ useEffect(() => {
     setDraftAvatarUrl(profile.avatarUrl);
 }, [profile.avatarUrl]);
 
+// 页面初始化批量拉取数据
 useEffect(() => {
     const fetchData = async () => {
+        // 并行发起多个接口请求
         const tasks: Promise<unknown>[] = [
             orderAPI.getPurchasedCourses(),
             orderAPI.getList({ page: 1, pageSize: 10 }),
         ];
+        // 学员额外拉取学习统计
         if (isLearner) {
             tasks.push(progressAPI.getStats());
         }
-
+        // 统一处理所有请求结果
         const results = await Promise.allSettled(tasks);
-
+        // 分别赋值课程、订单、统计数据，捕获单项接口异常不影响整体
         const purchasedResult = results[0];
         if (purchasedResult.status === 'fulfilled') {
             setPurchasedCourses(purchasedResult.value as PurchasedCourse[]);
@@ -136,7 +155,7 @@ useEffect(() => {
 
     fetchData();
 }, [isLearner]);
-
+// 保存昵称
 const handleSaveProfile = async () => {
     const ok = await setProfile({ displayName: draftName });
     if (ok) {
@@ -144,14 +163,14 @@ const handleSaveProfile = async () => {
         window.setTimeout(() => setSavedHint(false), 2000);
     }
 };
-
+// 预设头像选择
 const pickAvatar = (seed: string) => {
     setAvatarError('');
     setDraftAvatarUrl(dicebearUrl(seed));
 };
 
 const hasAvatarChanges = draftAvatarUrl.trim() !== profile.avatarUrl.trim();
-
+// 保存头像修改-对比草稿与原头像，无变更直接返回、调用资料接口保存，返回结果给出成功/失败提示
 const handleSaveAvatar = async () => {
     if (!hasAvatarChanges) return;
     setAvatarError('');
@@ -165,7 +184,8 @@ const handleSaveAvatar = async () => {
         setAvatarError('头像保存失败，请稍后重试');
     }
 };
-
+// 本地上传头像 + 校验-获取文件 → 格式校验 → 大小校验、上传文件接口 → 更新本地头像草稿 → 保存到个人资料
+    // 全程捕获异常，给出对应文字报错
 const handleAvatarFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -200,7 +220,7 @@ const handleAvatarFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
         setUploadingAvatar(false);
     }
 };
-
+// 全局加载兜底、return 旋转加载图标
 if (loading || profileLoading) {
     return (
         <div className="flex items-center justify-center h-full">

@@ -9,15 +9,22 @@ import {
 } from '../api';
 import PathSubwayMap from '../components/PathSubwayMap';
 import PathAssessmentModal from '../components/PathAssessmentModal';
-
+// 组件初始化与状态定义
 export default function LearningPathDetailPage() {
+    // 路由动态参数，当前查看的学习路径唯一标识
     const { pathId } = useParams<{ pathId: string }>();
+    // 路径完整详情数据
     const [detail, setDetail] = useState<LearningPathDetail | null>(null);
+    // 接口加载状态
     const [loading, setLoading] = useState(true);
+    // 异常请求文案
     const [error, setError] = useState('');
+    // 控制AI测评弹窗显隐
     const [showAssessment, setShowAssessment] = useState(false);
+    // 本次最新测评返回结果
     const [aiResult, setAiResult] = useState<PathAssessmentResult | null>(null);
 
+    // 加载路径详情方法
     const loadDetail = () => {
         if (!pathId) return;
         setLoading(true);
@@ -25,6 +32,7 @@ export default function LearningPathDetailPage() {
             .getDetail(pathId)
             .then((data) => {
                 setDetail(data);
+                // 后端标记需要测评，自动弹出弹窗
                 if (data.needsAssessment) {
                     setShowAssessment(true);
                 }
@@ -32,17 +40,18 @@ export default function LearningPathDetailPage() {
             .catch((e) => setError(e.message || '加载失败'))
             .finally(() => setLoading(false));
     };
-
+    // 路由监听触发刷新
     useEffect(() => {
         loadDetail();
     }, [pathId]);
-
+    // 测评完成回调
     const handleAssessmentComplete = (result: PathAssessmentResult) => {
         setAiResult(result);
         setShowAssessment(false);
         loadDetail();
     };
-
+    // 兜底页面渲染
+    // 旋转加载图标
     if (loading) {
         return (
             <div className="flex h-[50vh] items-center justify-center">
@@ -50,7 +59,7 @@ export default function LearningPathDetailPage() {
             </div>
         );
     }
-
+    // 请求失败、数据不存在
     if (error || !detail) {
         return (
             <div className="space-y-4 text-center">
@@ -61,7 +70,7 @@ export default function LearningPathDetailPage() {
             </div>
         );
     }
-
+    // 页面主体渲染
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <Link

@@ -1,3 +1,4 @@
+// 全局认证上下文
 import {
     createContext,
     useContext,
@@ -6,10 +7,11 @@ import {
     type ReactNode,
 } from 'react';
 
+// 本地储存键名常量
 const TOKEN_KEY = 'accessToken';
 const USER_KEY = 'user';
 const REFRESH_TOKEN_KEY = 'refreshToken';
-
+// 用户信息类型
 export interface User {
     id: string;
     username: string;
@@ -18,7 +20,7 @@ export interface User {
     role: 'learner' | 'instructor' | 'admin';
     avatarUrl: string;
 }
-
+// 上下文对外暴露类型
 interface AuthContextType {
     user: User | null;
     token: string | null;
@@ -29,10 +31,11 @@ interface AuthContextType {
     /** 已完成从 localStorage 恢复（首屏同步恢复，通常为 true） */
     isReady: boolean;
 }
-
+// 创建上下文容器
 const AuthContext = createContext<AuthContextType | null>(null);
-
+// 本地读取登录态工具函数
 function loadStoredAuth(): { token: string | null; user: User | null } {
+    // 服务端渲染环境直接返回空
     if (typeof window === 'undefined') {
         return { token: null, user: null };
     }
@@ -49,15 +52,17 @@ function loadStoredAuth(): { token: string | null; user: User | null } {
         }
         return { token: storedToken, user };
     } catch {
+        // 数据损坏清空缓存
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         return { token: null, user: null };
     }
 }
-
+// 认证包裹容器
 export function AuthProvider({ children }: { children: ReactNode }) {
     // 同步读取，避免刷新后首帧 isAuthenticated=false 被路由守卫踢到登录页
+    // 组件挂载立刻同步读取本地控制态
     const [auth, setAuth] = useState(loadStoredAuth);
 
     const login = useCallback((newToken: string, newUser: User, refreshToken?: string) => {
@@ -75,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(USER_KEY);
         localStorage.removeItem(REFRESH_TOKEN_KEY);
     }, []);
-
+    // 局部更新用户信息(头像\昵称\邮箱)-自动同步内存与本地缓存
     const updateUser = useCallback((partial: Partial<User>) => {
         setAuth((prev) => {
             if (!prev.user) return prev;
@@ -84,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return { ...prev, user: nextUser };
         });
     }, []);
-
+    // 上下文向外抛出值
     return (
         <AuthContext.Provider
             value={{
@@ -101,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         </AuthContext.Provider>
     );
 }
-
+// 自定义获取上下文钩子
 export function useAuth() {
     const context = useContext(AuthContext);
     if (!context) {

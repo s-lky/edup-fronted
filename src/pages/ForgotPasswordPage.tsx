@@ -8,75 +8,85 @@ import {
     validateForgotPasswordForm,
     type ForgotPasswordField,
 } from '../lib/authValidation';
-
+// 错误提示组件
 function FieldHint({ show }: { show: boolean }) {
     if (!show) return null;
     return <p className="mt-1 text-sm text-red-600">{FIELD_ERROR_MSG}</p>;
 }
-
+// 页面主组件与状态定义
 export default function ForgotPasswordPage() {
     const navigate = useNavigate();
+    // 表单全部字段
     const [formData, setFormData] = useState({
         username: '',
         email: '',
         newPassword: '',
         confirmPassword: '',
     });
+    // 字段检验错误标记
     const [fieldErrors, setFieldErrors] = useState<Partial<Record<ForgotPasswordField, boolean>>>({});
+    // 字段是否失焦触碰（控制何时显示错误）
     const [touched, setTouched] = useState<Partial<Record<ForgotPasswordField, boolean>>>({});
+    // 密码显隐开关
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    // 提交加载、全局错误、成功提示
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-
+//  输入框内容更新
     const updateField = (field: ForgotPasswordField, value: string) => {
         const next = { ...formData, [field]: value };
         setFormData(next);
+        // 已有字段触碰记录，实时联动检验
         if (Object.keys(touched).length > 0) {
             setFieldErrors(validateForgotPasswordForm(next));
         }
     };
-
+// 输入框失焦校验
     const handleBlur = (field: ForgotPasswordField) => {
         setTouched((prev) => ({ ...prev, [field]: true }));
         setFieldErrors(validateForgotPasswordForm(formData));
     };
-
+// 表单提交核心逻辑
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
-
+        // 整体校验表单
         const errors = validateForgotPasswordForm(formData);
         setFieldErrors(errors);
+        // 全部字段标记为已触碰，统一展示错误
         setTouched({
             username: true,
             email: true,
             newPassword: true,
             confirmPassword: true,
         });
-
+        // 存在错误直接阻止提交
         if (Object.keys(errors).length > 0) {
             return;
         }
 
         setLoading(true);
         try {
+            // 调用后端重置密码接口
             await authAPI.forgotPassword({
                 username: formData.username.trim(),
                 email: formData.email.trim(),
                 newPassword: formData.newPassword,
             });
+            // 成功提示+延时跳转登录页
             setSuccess('密码已重置，即将跳转到登录页…');
             window.setTimeout(() => navigate('/login', { replace: true }), 2000);
         } catch (err: unknown) {
+            // 接口异常捕获
             setError(err instanceof Error ? err.message : '密码重置失败，请稍后重试');
         } finally {
             setLoading(false);
         }
     };
-
+    // 动态输入框样式
     const inputClass = (field: ForgotPasswordField) =>
         `w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all ${
             touched[field] && fieldErrors[field]

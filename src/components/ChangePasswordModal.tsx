@@ -8,16 +8,18 @@ import {
     validateChangePasswordForm,
     type ChangePasswordField,
 } from '../lib/authValidation';
-
+// 错误提示子组件-表单项下方红色错误提示，show=true
 function FieldHint({ show }: { show: boolean }) {
     if (!show) return null;
     return <p className="mt-1 text-sm text-red-600">{FIELD_ERROR_MSG}</p>;
 }
+// 统一提示文字：FIELD_ERROR_MSG（从校验文件导入）
 
+// 弹窗props定义-父组件通过open控制显示
 interface ChangePasswordModalProps {
-    open: boolean;
-    onClose: () => void;
-    onSuccess?: () => void;
+    open: boolean; //关闭弹窗显示/隐藏
+    onClose: () => void; //关闭回调
+    onSuccess?: () => void; //成功回调
 }
 
 const emptyForm = {
@@ -25,19 +27,26 @@ const emptyForm = {
     newPassword: '',
     confirmPassword: '',
 };
-
+// 组件状态
 export default function ChangePasswordModal({ open, onClose, onSuccess }: ChangePasswordModalProps) {
+    // 表单数据：当前密码、新密码、确认密码
     const [form, setForm] = useState(emptyForm);
+    // 字段错误：{ currentPassword: true, newPassword: true... }
     const [fieldErrors, setFieldErrors] = useState<Partial<Record<ChangePasswordField, boolean>>>({});
+    // 标记字段是否被触碰过（输入后才显示错误）
     const [touched, setTouched] = useState<Partial<Record<ChangePasswordField, boolean>>>({});
+    // 3个密码框的可见/隐藏状态
     const [showCurrent, setShowCurrent] = useState(false);
     const [showNew, setShowNew] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    // 提交加载状态
     const [saving, setSaving] = useState(false);
+    // 接口返回的顶部错误
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (!open) return;
+        // 打开弹窗->清空所有状态
         setForm(emptyForm);
         setFieldErrors({});
         setTouched({});
@@ -50,16 +59,19 @@ export default function ChangePasswordModal({ open, onClose, onSuccess }: Change
     const updateField = (field: ChangePasswordField, value: string) => {
         const next = { ...form, [field]: value };
         setForm(next);
+            // 如果已经触碰过 → 实时校验
         if (Object.keys(touched).length > 0) {
             setFieldErrors(validateChangePasswordForm(next));
         }
     };
 
+    // 失去焦点时标记"已触碰"
     const handleBlur = (field: ChangePasswordField) => {
         setTouched((prev) => ({ ...prev, [field]: true }));
         setFieldErrors(validateChangePasswordForm(form));
     };
 
+    // 输入框样式(错误变红)
     const inputClass = (field: ChangePasswordField) =>
         cn(
             'w-full rounded-xl border bg-white py-3 pl-11 pr-12 text-sm outline-none transition-shadow focus:ring-2 focus:ring-indigo-500',
@@ -68,25 +80,31 @@ export default function ChangePasswordModal({ open, onClose, onSuccess }: Change
                 : 'border-slate-200',
         );
 
+    // 提交逻辑
     const handleSubmit = async () => {
         setError('');
+        // 执行校验
         const errors = validateChangePasswordForm(form);
         setFieldErrors(errors);
+        // 所有字段标记为已触碰
         setTouched({
             currentPassword: true,
             newPassword: true,
             confirmPassword: true,
         });
+        // 有错误->不提交
         if (Object.keys(errors).length > 0) {
             return;
         }
 
         setSaving(true);
         try {
+            // 调用后端接口
             await userAPI.changePassword({
                 currentPassword: form.currentPassword,
                 newPassword: form.newPassword,
             });
+            // 成功：回调+关闭
             onSuccess?.();
             onClose();
         } catch (err: unknown) {
@@ -104,6 +122,7 @@ export default function ChangePasswordModal({ open, onClose, onSuccess }: Change
     if (!open) return null;
 
     return (
+        // 弹窗动画容器
         <AnimatePresence>
             <motion.div
                 initial={{ opacity: 0 }}

@@ -1,22 +1,33 @@
 @import "tailwindcss";
 
+/* 自定义弹幕滚动动画 */
 @theme{
+    /* 定义动画变量名，时长 8 秒、匀速、无限循环 */
     --animate-danmuku: danmuku 8s linear infinite;
 
+    /* 动画关键帧 */
     @keyframes danmaku {
+        /* 初始位置屏幕最右侧外 */
         from{
             transform: translateA(100vw);
         }
+        /* 结束位置元素自身最左侧外 */
         to{
             transform: translateX(-100%);
         }
     }
 }
+/* 效果：文字从右向左匀速滚动（弹幕效果） */
 
+/* 页面全局基础样式 */
 body{
     @apply bg-slate-50 text-slate-900 font-sans;
+    /* @apply：复用 Tailwind 内置工具类、页面背景：浅灰、文字颜色：深灰黑、全局字体：无衬线字体 */
 }
 
+/* 自定义细滚动条样式 */
+/* 仅给带scrollbar-thin类的元素生效、滚动条宽度：6px 超细款、滚动轨道：透明底色 */
+/* 滚动滑块：浅灰色、圆角圆润、悬浮滑块：加深灰色，提升交互感 */
 .scrollbar-thin::-webkit-scrollbar{
     width: 6px;
 }
@@ -34,11 +45,16 @@ body{
     background: #94a3b8;
 }
 
+/* 通用卡片样式 card-polish */
+/* 封装通用白色卡片：纯白背景、浅灰边框、大圆角、溢出内容隐藏、轻微阴影，简约质感卡片 */
 .card-polish{
     @apply bg-white border-slate-200 rounded-xl overflow-hidden shadow-sm;
 }
 
 
+/* 通用按钮样式 button-polish */
+/* 封装统一主色调按钮：靛蓝色底色、白色文字。内边距、小圆角、小号加粗字体。悬浮加深底色 */
+/* 点击缩小 95%，按压反馈动画、所有样式平滑过渡 */
 .button-polish {
   @apply bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-md hover:bg-indigo-700 transition-all active:scale-95;
 }

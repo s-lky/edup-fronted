@@ -5,15 +5,16 @@ import { courseAPI, uploadAPI, type CreateCoursePayload } from '../api';
 import { COURSE_CATEGORIES } from './CourseListSection';
 import { cn } from '../lib/utils';
 
+// 单条视频草稿数据结构
 export interface VideoDraft {
     id: string;
     title: string;
     file: File | null;
-    url: string;
-    duration: string;
+    url: string;  //后端返回线上视频地址
+    duration: string; //格式化时长01:20
     uploading: boolean;
 }
-
+// 组件对外传参
 interface CreateCourseModalProps {
     open: boolean;
     onClose: () => void;
@@ -21,12 +22,12 @@ interface CreateCourseModalProps {
     /** 编辑已有草稿时传入课程 ID */
     editingCourseId?: string | null;
 }
-
+// 过滤掉“全部”，只保留实际可选择分类
 const CATEGORY_OPTIONS = COURSE_CATEGORIES.filter((c) => c !== '全部');
-
+// 生成一条空的视频草稿项
 function newVideoDraft(): VideoDraft {
     return {
-        id: crypto.randomUUID(),
+        id: crypto.randomUUID(),  //浏览器原生生成唯一ID
         title: '',
         file: null,
         url: '',
@@ -34,21 +35,22 @@ function newVideoDraft(): VideoDraft {
         uploading: false,
     };
 }
-
+// 秒数 转为 分:秒 格式
 function formatDuration(seconds: number): string {
     const total = Math.max(0, Math.floor(seconds));
     const m = Math.floor(total / 60);
     const s = total % 60;
     return `${m}:${String(s).padStart(2, '0')}`;
 }
-
+// 读取本地视频文件时长（核心工具）
 function readVideoDuration(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
         video.preload = 'metadata';
         const objectUrl = URL.createObjectURL(file);
+        // 读取元数据成功获取时长
         video.onloadedmetadata = () => {
-            URL.revokeObjectURL(objectUrl);
+            URL.revokeObjectURL(objectUrl);  //释放内存00
             resolve(formatDuration(video.duration));
         };
         video.onerror = () => {
@@ -65,20 +67,24 @@ export default function CreateCourseModal({
     onSuccess,
     editingCourseId = null,
 }: CreateCourseModalProps) {
+    // 课程基础表单
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState<string>(CATEGORY_OPTIONS[0]);
     const [price, setPrice] = useState('0');
     const [thumbnail, setThumbnail] = useState('');
+    // 视频列表数组
     const [videos, setVideos] = useState<VideoDraft[]>([newVideoDraft()]);
-    const [submitting, setSubmitting] = useState(false);
-    const [savingDraft, setSavingDraft] = useState(false);
-    const [loadingDraft, setLoadingDraft] = useState(false);
-    const [error, setError] = useState('');
-    const [draftConfirmOpen, setDraftConfirmOpen] = useState(false);
+    // 各类加载状态
+    const [submitting, setSubmitting] = useState(false); //发布提交中
+    const [savingDraft, setSavingDraft] = useState(false); //保存草稿中
+    const [loadingDraft, setLoadingDraft] = useState(false); //编辑回显加载中
+    const [error, setError] = useState(''); //全局错误提示
+    const [draftConfirmOpen, setDraftConfirmOpen] = useState(false); //关闭确认弹窗
 
-    const isEditing = Boolean(editingCourseId);
+    const isEditing = Boolean(editingCourseId); //判断是否为编辑模式
 
+    // 表单重置函数-只创建一次，弹窗新建模式打开直接清空所有表单
     const resetForm = useCallback(() => {
         setTitle('');
         setDescription('');
@@ -89,17 +95,18 @@ export default function CreateCourseModal({
         setError('');
     }, []);
 
+    // 弹窗打开监听+编辑草稿数据回显
     useEffect(() => {
         if (!open) {
             setDraftConfirmOpen(false);
             return;
         }
-
+        // 新建模式：直接清空表单
         if (!editingCourseId) {
             resetForm();
             return;
         }
-
+        // 编辑模式：拉取已有课程草稿数据回填
         let cancelled = false;
         setLoadingDraft(true);
         setError('');
@@ -108,6 +115,7 @@ export default function CreateCourseModal({
             .getForManage(editingCourseId)
             .then((detail) => {
                 if (cancelled) return;
+                // 回填基础信息
                 setTitle(detail.title === '未命名草稿' ? '' : detail.title);
                 setDescription(detail.description ?? '');
                 setCategory(
@@ -117,6 +125,7 @@ export default function CreateCourseModal({
                 );
                 setPrice(String(detail.price ?? 0));
                 setThumbnail(detail.thumbnail ?? '');
+                // 回填已有视频
                 const loadedVideos =
                     detail.videos && detail.videos.length > 0
                         ? detail.videos.map((v) => ({
@@ -138,39 +147,47 @@ export default function CreateCourseModal({
             .finally(() => {
                 if (!cancelled) setLoadingDraft(false);
             });
-
+        // 组件销毁、依赖变更取消请求
         return () => {
             cancelled = true;
         };
     }, [open, editingCourseId, resetForm]);
-
+    // 视频数据局部更新
     const updateVideo = (id: string, patch: Partial<VideoDraft>) => {
         setVideos((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
     };
-
+    // 本地视频上传逻辑
     const handleVideoFile = async (id: string, file: File | null) => {
+        // 清空文件
         if (!file) {
             updateVideo(id, { file: null, url: '', duration: '' });
             return;
         }
+        // 校验视频类型
         if (!file.type.startsWith('video/')) {
             setError('请选择视频文件（mp4、webm 等）');
             return;
         }
+        // 标记开始上传
         updateVideo(id, { file, uploading: true });
         setError('');
         try {
+            // 前端读取视频时长
             const duration = await readVideoDuration(file);
+            // 调用上传接口
             const { url } = await uploadAPI.uploadVideo(file);
+            // 回填线上地址+时长，结束上传
             updateVideo(id, { file, url, duration, uploading: false });
         } catch (e) {
+            // 上传失败重置状态
             updateVideo(id, { file: null, url: '', duration: '', uploading: false });
             setError(e instanceof Error ? e.message : '视频上传失败');
         }
     };
-
+    // 组装请求体函数
     const buildPayload = (publish: boolean): CreateCoursePayload => {
         const priceNum = Number(price);
+        // 过滤有效已上传视频
         const validVideos = videos
             .filter((v) => v.url)
             .map((v) => ({
@@ -185,11 +202,11 @@ export default function CreateCourseModal({
             category: category || CATEGORY_OPTIONS[0],
             price: Number.isNaN(priceNum) || priceNum < 0 ? 0 : priceNum,
             thumbnail: thumbnail.trim() || undefined,
-            publish,
+            publish,// 核心字段：是否正式发布
             videos: validVideos.length > 0 ? validVideos : undefined,
         };
     };
-
+    // 判断表单是否填写了内容（用来关闭弹窗判断是否存草稿）
     const hasFormContent = () => {
         if (title.trim() || description.trim() || thumbnail.trim()) return true;
         if (price !== '' && price !== '0') return true;
@@ -197,7 +214,7 @@ export default function CreateCourseModal({
             (v) => v.title.trim() || v.url || v.file || v.uploading,
         );
     };
-
+    // 发布课程严格校验
     const validateBeforePublish = () => {
         if (!title.trim()) {
             setError('请填写课程标题');
@@ -227,7 +244,7 @@ export default function CreateCourseModal({
         }
         return true;
     };
-
+    // 保存草稿逻辑
     const handleSaveDraft = async () => {
         if (!hasFormContent()) {
             setError('请至少填写一项课程信息后再保存草稿');
@@ -241,7 +258,8 @@ export default function CreateCourseModal({
         setSavingDraft(true);
         setError('');
         try {
-            const payload = buildPayload(false);
+            const payload = buildPayload(false); //publish=flase存草稿
+            // 编辑走更新接口，新建走创建接口
             if (isEditing && editingCourseId) {
                 await courseAPI.update(editingCourseId, payload);
             } else {
@@ -256,14 +274,14 @@ export default function CreateCourseModal({
             setDraftConfirmOpen(false);
         }
     };
-
+    // 正式发表课程逻辑
     const handleSubmit = async () => {
         if (!validateBeforePublish()) return;
 
         setSubmitting(true);
         setError('');
         try {
-            const payload = buildPayload(true);
+            const payload = buildPayload(true); //publish=true正式上线
             if (isEditing && editingCourseId) {
                 await courseAPI.publish(editingCourseId, payload);
             } else {
@@ -277,13 +295,16 @@ export default function CreateCourseModal({
             setSubmitting(false);
         }
     };
-
+    // 弹窗关闭拦截逻辑
     const requestClose = () => {
+        // 正在请求中
         if (submitting || savingDraft || loadingDraft) return;
+        // 无内容直接关
         if (!hasFormContent()) {
             onClose();
             return;
         }
+        // 有内容二次确认
         setDraftConfirmOpen(true);
     };
 

@@ -5,11 +5,11 @@ import { learningPathAPI, type PathAssessmentQuestion, type PathAssessmentResult
 import { cn } from '../lib/utils';
 
 interface PathAssessmentModalProps {
-    pathId: string;
-    pathTitle: string;
-    open: boolean;
-    onClose: () => void;
-    onComplete: (result: PathAssessmentResult) => void;
+    pathId: string;  // 学习路径ID
+    pathTitle: string; //路径名称
+    open: boolean; //弹窗显示开关
+    onClose: () => void; //关闭回调
+    onComplete: (result: PathAssessmentResult) => void; //测评完成回调
 }
 
 export default function PathAssessmentModal({
@@ -19,13 +19,20 @@ export default function PathAssessmentModal({
     onClose,
     onComplete,
 }: PathAssessmentModalProps) {
+    //全部测评题目列表
     const [questions, setQuestions] = useState<PathAssessmentQuestion[]>([]);
+    //答题答案缓存，键为题目ID，值为选中选项下标
     const [answers, setAnswers] = useState<Record<string, number>>({});
+    //当前答题步数，控制展示第几题
     const [step, setStep] = useState(0);
+    //题目加载状态
     const [loading, setLoading] = useState(false);
+    //提交测评结果加载态
     const [submitting, setSubmitting] = useState(false);
+    //全局错误提示文案
     const [error, setError] = useState('');
 
+    // 弹窗打开拉取题目
     useEffect(() => {
         if (!open) return;
         setStep(0);
@@ -39,9 +46,11 @@ export default function PathAssessmentModal({
             .finally(() => setLoading(false));
     }, [open, pathId]);
 
+    // 快捷变量
     const current = questions[step];
     const isLast = step >= questions.length - 1;
 
+    // 提交测评逻辑
     const handleSubmit = async () => {
         if (questions.some((q) => answers[q.id] === undefined)) {
             setError('请完成全部题目');
@@ -59,6 +68,7 @@ export default function PathAssessmentModal({
         }
     };
 
+    // 条件返回
     if (!open) return null;
 
     return (

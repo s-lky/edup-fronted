@@ -10,17 +10,24 @@ import { cn } from '../lib/utils';
 const PLACEHOLDER_THUMB =
     'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&q=80';
 
+    // 组件入口 & 权限判定
 export default function CourseDraftsPage() {
     const { user } = useAuth();
+    // 仅管理员、讲师拥有草稿管理权限
     const canManage = user?.role === 'admin' || user?.role === 'instructor';
 
+    // 页面状态定义
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [drafts, setDrafts] = useState<DraftCourseItem[]>([]);
+    // 创建 / 编辑弹窗开关
     const [modalOpen, setModalOpen] = useState(false);
+    // 当前正在编辑的草稿 ID，为空代表新建
     const [editingId, setEditingId] = useState<string | null>(null);
+    // 触发列表重新请求刷新
     const [refreshKey, setRefreshKey] = useState(0);
 
+    // 数据请求副作用
     useEffect(() => {
         if (!canManage) return;
 
@@ -30,6 +37,7 @@ export default function CourseDraftsPage() {
             setLoading(true);
             setError(null);
             try {
+                // 一页最多拉取50条草稿
                 const res = await courseAPI.listDrafts(1, 50);
                 if (!cancelled) {
                     setDrafts(res.list ?? []);
@@ -42,37 +50,39 @@ export default function CourseDraftsPage() {
                 if (!cancelled) setLoading(false);
             }
         }
-
+        // 组件卸载终止请求，防止内存泄漏
         load();
         return () => {
             cancelled = true;
         };
     }, [canManage, refreshKey]);
 
+    // 无权限拦截重定向
     if (!canManage) {
         return <Navigate to="/admin" replace />;
     }
-
+    // 新建课程草稿
     const openCreate = () => {
         setEditingId(null);
         setModalOpen(true);
     };
-
+    // 编辑已有草稿
     const openEdit = (id: string) => {
         setEditingId(id);
         setModalOpen(true);
     };
-
+    // 关闭弹窗、清空编辑标识
     const handleModalClose = () => {
         setModalOpen(false);
         setEditingId(null);
     };
-
+    // 刷新列表数据
     const reload = () => setRefreshKey((k) => k + 1);
 
     return (
         <div className="space-y-8 pb-20">
-            <motion.div
+            {/* 返回上级页面链接 */}
+            <motion.div  
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
@@ -125,6 +135,7 @@ export default function CourseDraftsPage() {
                 </div>
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* 草稿卡片网格 */}
                     {drafts.map((draft, i) => (
                         <motion.div
                             key={draft.id}
@@ -140,6 +151,7 @@ export default function CourseDraftsPage() {
                             />
                             <div className="p-5">
                                 <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-500">
+                                     {/* 草稿标签、标题、分类、视频数量、更新时间 */}
                                     草稿
                                 </span>
                                 <h3 className="mt-2 line-clamp-2 font-bold text-gray-900">
@@ -169,7 +181,7 @@ export default function CourseDraftsPage() {
                     ))}
                 </div>
             )}
-
+            {/* 课程编辑创建弹窗挂载 */}
             <CreateCourseModal
                 open={modalOpen}
                 onClose={handleModalClose}

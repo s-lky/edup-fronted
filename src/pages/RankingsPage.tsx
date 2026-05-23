@@ -1,3 +1,4 @@
+// 排行榜页面
 import { useEffect, useState } from 'react';
 import { Trophy, Flame, Star, Medal, Loader2 } from 'lucide-react';
 import { rankingAPI, type RankingItem, type MyRankInfo } from '../api';
@@ -11,7 +12,7 @@ const RANK_TABS: { key: RankType; label: string }[] = [
     { key: 'monthly', label: '月榜' },
     { key: 'all', label: '总榜' },
 ];
-
+// 头像兜底处理函数
 const AVATAR_FALLBACK = (seed: string) =>
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 
@@ -21,12 +22,16 @@ function avatarSrc(item: RankingItem) {
 
 export default function RankingPage() {
     const { isAuthenticated } = useAuth();
+    // 当前选中榜单类型
     const [type, setType] = useState<RankType>('weekly');
+    // 全员排行数据列表
     const [list, setList] = useState<RankingItem[]>([]);
+    // 登录用户自身排名信息
     const [myRank, setMyRank] = useState<MyRankInfo | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // 数据请求逻辑
     useEffect(() => {
         let cancelled = false;
 
@@ -59,6 +64,7 @@ export default function RankingPage() {
         };
     }, [type, isAuthenticated]);
 
+    // 数据分片处理
     const top3 = list.slice(0, 3);
     const rest = list.slice(3);
     const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean) as RankingItem[];

@@ -5,9 +5,10 @@ import { motion } from 'motion/react';
 import { courseAPI } from '../api';
 import { cn } from '../lib/utils';
 
+// 图片失效时显示
 export const COURSE_THUMB_FALLBACK =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%23e2e8f0' width='800' height='450'/%3E%3Ctext x='400' y='230' text-anchor='middle' fill='%2394a3b8' font-size='22' font-family='system-ui,sans-serif'%3E%E8%AF%BE%E7%A8%8B%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E";
-
+// 分类枚举
 export const COURSE_CATEGORIES = [
     '全部',
     '前端开发',
@@ -16,7 +17,7 @@ export const COURSE_CATEGORIES = [
     '后端开发',
     '移动开发',
 ] as const;
-
+// 图片错误处理工具函数
 function handleCourseThumbError(e: React.SyntheticEvent<HTMLImageElement>) {
     const img = e.currentTarget;
     if (img.dataset.fallbackApplied === '1') return;
@@ -24,6 +25,7 @@ function handleCourseThumbError(e: React.SyntheticEvent<HTMLImageElement>) {
     img.src = COURSE_THUMB_FALLBACK;
 }
 
+// 课程实体类型,和后端V0完全对齐
 export interface Course {
     id: string;
     title: string;
@@ -44,7 +46,7 @@ export interface Course {
         order: number;
     }>;
 }
-
+// 组件对外传入参数
 interface CourseListSectionProps {
     /** 首页预览：少量课程 + 查看全部；课程专区：完整列表 */
     variant?: 'preview' | 'full';
@@ -52,6 +54,7 @@ interface CourseListSectionProps {
     pageSize?: number;
 }
 
+// 组件入口与基础变量
 export default function CourseListSection({
     variant = 'full',
     keyword = '',
@@ -59,8 +62,10 @@ export default function CourseListSection({
 }: CourseListSectionProps) {
     const navigate = useNavigate();
     const isPreview = variant === 'preview';
+    // 预览默认6条，完整版默认20条
     const limit = pageSize ?? (isPreview ? 6 : 20);
 
+    // 组件状态管理
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -68,12 +73,14 @@ export default function CourseListSection({
 
     const activeKeyword = keyword.trim();
 
+    // 数据请求核心useEffect
     useEffect(() => {
         const fetchCourses = async () => {
             setLoading(true);
             setError('');
 
             try {
+                // 组装请求参数
                 const params: {
                     page: number;
                     pageSize: number;
@@ -91,7 +98,7 @@ export default function CourseListSection({
                 if (selectedCategory !== '全部') {
                     params.category = selectedCategory;
                 }
-
+                // 调用接口获取课程列表
                 const response = await courseAPI.getList(params);
                 setCourses(response.list || []);
             } catch (err: unknown) {
@@ -103,13 +110,17 @@ export default function CourseListSection({
         };
 
         fetchCourses();
+        // 依赖变化自动重新请求:关键词、分类、条数
     }, [activeKeyword, selectedCategory, limit]);
 
     const openCourse = async (course: Course) => {
         try {
+            // 先获取课程详情
             const detail = await courseAPI.getDetail(course.id);
+            // 取第一个视频
             const firstVideo = detail.videos?.[0];
             if (firstVideo) {
+                // 跳转到播放页 /play/课程ID/视频ID
                 navigate(`/play/${course.id}/${firstVideo.id}`);
             } else {
                 setError('该课程暂无视频');

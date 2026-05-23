@@ -1,38 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-    Users,
-    Video,
-    DollarSign,
-    TrendingUp,
-    Plus,
-    MoreVertical,
-    Eye,
-    Settings,
-    ShieldCheck,
-    ChevronRight,
-    Loader2,
-    Play,
-    FileText,
-} from 'lucide-react';
+// 业务图标、加载、播放、设置等图标
+import { Users, Video, DollarSign, TrendingUp, Plus, MoreVertical, Eye, Settings, ShieldCheck, ChevronRight, Loader2, Play, FileText, } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+// 登录全局上下文
 import { useAuth } from '../context/AuthContext';
-import {
-    adminAPI,
-    dashboardAPI,
-    type AdminCourseItem,
-    type AdminStats,
-    type LearnerCourseItem,
-    type LearnerDashboardStats,
-    type LearnerLearningTrend,
-    type LearningTrend,
-} from '../api/index';
+// 管理员、学员全套接口 + TS类型
+import { adminAPI, dashboardAPI, type AdminCourseItem, type AdminStats, type LearnerCourseItem, type LearnerDashboardStats, type LearnerLearningTrend, type LearningTrend, } from '../api/index';
+// 新建课程弹窗组件
 import CreateCourseModal from '../components/CreateCourseModal';
-
+// 默认课程封面兜底图
 const PLACEHOLDER_THUMB =
     'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&q=80';
-
+// 状态文字映射
 const COURSE_STATUS_LABEL: Record<string, string> = {
     published: '已上线',
     draft: '草稿',
@@ -41,7 +22,7 @@ const COURSE_STATUS_LABEL: Record<string, string> = {
     completed: '已完成',
     not_started: '未开始',
 };
-
+// 状态对应标签样式
 const COURSE_STATUS_STYLE: Record<string, string> = {
     published: 'bg-green-50 text-green-600',
     draft: 'bg-gray-50 text-gray-500',
@@ -50,34 +31,41 @@ const COURSE_STATUS_STYLE: Record<string, string> = {
     completed: 'bg-green-50 text-green-600',
     not_started: 'bg-gray-50 text-gray-500',
 };
-
+//通用格式化函数
+//数字千分位格式化
 function formatNumber(n: number) {
     return n.toLocaleString('zh-CN');
 }
-
+// 增长率带正负号
 function formatGrowth(rate: number) {
     const sign = rate >= 0 ? '+' : '';
     return `${sign}${rate}%`;
 }
 
+// 主组件 & 角色判定
 export default function AdminPage() {
     const { user } = useAuth();
+    // 讲师/管理员 = 管理视图
     const isManagementView = user?.role === 'admin' || user?.role === 'instructor';
+    // 纯管理员标识
     const isAdmin = user?.role === 'admin';
 
+    // 页面状态定义
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
+    // 管理员
     const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
     const [adminCourses, setAdminCourses] = useState<AdminCourseItem[]>([]);
     const [adminTrend, setAdminTrend] = useState<LearningTrend | null>(null);
-
+    // 学员
     const [learnerStats, setLearnerStats] = useState<LearnerDashboardStats | null>(null);
     const [learnerCourses, setLearnerCourses] = useState<LearnerCourseItem[]>([]);
     const [learnerTrend, setLearnerTrend] = useState<LearnerLearningTrend | null>(null);
+    // 新建课程弹窗、刷新标识
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
+    // 数据请求核心副作用
     useEffect(() => {
         if (!user) return;
 
@@ -87,11 +75,12 @@ export default function AdminPage() {
             setLoading(true);
             setError(null);
             try {
+                // 管理端：讲师/管理员
                 if (isManagementView) {
                     const coursesRes = await adminAPI.listCourses(1, 20);
                     if (cancelled) return;
                     setAdminCourses(coursesRes.list ?? []);
-
+                    // 管理员拿完整统计+趋势
                     if (isAdmin) {
                         const [statsRes, trendRes] = await Promise.all([
                             adminAPI.getStats(),
@@ -100,7 +89,9 @@ export default function AdminPage() {
                         if (cancelled) return;
                         setAdminStats(statsRes);
                         setAdminTrend(trendRes);
-                    } else {
+                    } 
+                    // 讲师：自行统计学员数、营收
+                    else {
                         const totalStudents = coursesRes.list.reduce(
                             (sum, c) => sum + (c.studentsCount ?? 0),
                             0,
@@ -120,7 +111,9 @@ export default function AdminPage() {
                         });
                         setAdminTrend(null);
                     }
-                } else {
+                }
+                // 学员端：个人学习数据 
+                else {
                     const [statsRes, coursesRes, trendRes] = await Promise.all([
                         dashboardAPI.getStats(),
                         dashboardAPI.listCourses(1, 20),
@@ -141,6 +134,7 @@ export default function AdminPage() {
         }
 
         load();
+        // 组件卸载终止请求防止内存泄漏
         return () => {
             cancelled = true;
         };
@@ -148,6 +142,8 @@ export default function AdminPage() {
 
     const reloadManagementData = () => setRefreshKey((k) => k + 1);
 
+    // 组装统计卡片数据
+    // 管理端卡片数组
     const managementStats = adminStats
             ? [
                 {
@@ -184,7 +180,7 @@ export default function AdminPage() {
                 },
             ]
         : [];
-
+    // 学员端卡片数组
     const learnerStatCards = learnerStats
             ? [
                 {
@@ -203,22 +199,24 @@ export default function AdminPage() {
                 },
             ]
         : [];
-
+    // 根据角色切换卡片源
     const stats = isManagementView ? managementStats : learnerStatCards;
     const courseCount = isManagementView ? adminCourses.length : learnerCourses.length;
     const courseSectionTitle = isManagementView
         ? `已发布课程 (${courseCount})`
         : `已学习课程 (${courseCount})`;
-
+    // 完成率/反馈率
     const completionRate = isManagementView ? 76 : (learnerTrend?.completionRate ?? 0);
+    // AI提问、弹幕次数
     const trendAiCount = isManagementView
         ? (adminTrend?.aiQuestions ?? 0)
         : (learnerTrend?.aiQuestionCount ?? 0);
     const trendDanmakuCount = isManagementView
         ? (adminTrend?.regularDanmaku ?? 0)
         : (learnerTrend?.regularDanmaku ?? 0);
+    // 环形进度偏移量，控制圆环填充比例
     const circleOffset = 502 - (502 * completionRate) / 100;
-
+    // 旋转加载动画
     if (loading) {
         return (
             <motion.div
@@ -230,7 +228,7 @@ export default function AdminPage() {
             </motion.div>
         );
     }
-
+    // 错误提示+刷新重试按钮
     if (error) {
         return (
             <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">

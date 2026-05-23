@@ -5,10 +5,10 @@ import type { PathStage } from '../api';
 import { cn } from '../lib/utils';
 
 interface PathSubwayMapProps {
-    stages: PathStage[];
-    overallProgress: number;
+    stages: PathStage[]; //所有学习阶段数组
+    overallProgress: number; //全局整体完成百分比
 }
-
+// 状态文案映射
 const STATUS_LABEL: Record<string, string> = {
     not_started: '未开始',
     in_progress: '学习中',
@@ -16,15 +16,18 @@ const STATUS_LABEL: Record<string, string> = {
     skipped: '已掌握',
 };
 
+// 组件入口与路由
 export default function PathSubwayMap({ stages, overallProgress }: PathSubwayMapProps) {
     const navigate = useNavigate();
 
     return (
+        // 外层动画容器-淡入淡出
         <motion.section
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="space-y-8"
         >
+            {/* //全局总进度卡片 */}
             <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-purple-50 p-6">
                 <div className="mb-2 flex items-center justify-between">
                     <span className="text-base font-bold text-slate-700">路径总完成度</span>
@@ -40,15 +43,19 @@ export default function PathSubwayMap({ stages, overallProgress }: PathSubwayMap
                 </div>
             </div>
 
+            {/* 地铁线路轨道布局 */}
             <div className="overflow-x-auto pb-4">
                 <div className="relative min-w-[720px] px-4">
+                    {/* 底层灰色基准轨道 */}
                     <div className="absolute left-8 right-8 top-10 h-1 bg-slate-200" />
+                    {/* 已完成彩色进度轨道 */}
                     <div
                         className="absolute left-8 top-10 h-1 bg-indigo-500 transition-all duration-700"
                         style={{ width: `calc((100% - 4rem) * ${overallProgress / 100})` }}
                     />
 
                     <div className="relative flex justify-between gap-4">
+                        {/* 循环渲染学习阶段节点 */}
                         {stages.map((stage, si) => (
                             <motion.div
                                 key={stage.id}
@@ -82,7 +89,7 @@ export default function PathSubwayMap({ stages, overallProgress }: PathSubwayMap
                                         {stage.stageProgressPercent}%
                                     </span>
                                 </div>
-
+                                {/* 阶段标题与跳过标签 */}
                                 <h3 className="mt-3 line-clamp-2 text-center text-sm font-bold text-slate-800">
                                     {stage.title}
                                 </h3>
@@ -93,6 +100,7 @@ export default function PathSubwayMap({ stages, overallProgress }: PathSubwayMap
                                 )}
 
                                 <div className="mt-4 w-full space-y-2">
+                                    {/* 阶段内课程子节点列表 */}
                                     {stage.nodes.map((node) => (
                                         <button
                                             key={node.id}
