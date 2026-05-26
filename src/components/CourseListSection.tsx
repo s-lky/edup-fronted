@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, React } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Users, ChevronRight, Loader2, SearchX } from 'lucide-react';
 import { motion } from 'motion/react';
 import { courseAPI } from '../api';
+import { COURSE_THUMB_FALLBACK, resolveCourseCoverUrl } from '../lib/courseCover';
 import { cn } from '../lib/utils';
+import CourseCover from './CourseCover';
 
-// 图片失效时显示
-export const COURSE_THUMB_FALLBACK =
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%23e2e8f0' width='800' height='450'/%3E%3Ctext x='400' y='230' text-anchor='middle' fill='%2394a3b8' font-size='22' font-family='system-ui,sans-serif'%3E%E8%AF%BE%E7%A8%8B%E5%B0%81%E9%9D%A2%3C/text%3E%3C/svg%3E";
+export { COURSE_THUMB_FALLBACK, resolveCourseCoverUrl };
+
 // 分类枚举
 export const COURSE_CATEGORIES = [
     '全部',
@@ -17,8 +18,7 @@ export const COURSE_CATEGORIES = [
     '后端开发',
     '移动开发',
 ] as const;
-// 图片错误处理工具函数
-function handleCourseThumbError(e: React.SyntheticEvent<HTMLImageElement>) {
+export function handleCourseThumbError(e: React.SyntheticEvent<HTMLImageElement>) {
     const img = e.currentTarget;
     if (img.dataset.fallbackApplied === '1') return;
     img.dataset.fallbackApplied = '1';
@@ -206,22 +206,21 @@ export default function CourseListSection({
                             className="card-polish group flex cursor-pointer flex-col transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5"
                             onClick={() => openCourse(course)}
                         >
-                            <div className="relative aspect-video overflow-hidden bg-slate-100">
-                                <img
-                                    src={course.thumbnail}
-                                    alt={course.title}
-                                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                    onError={handleCourseThumbError}
-                                />
+                            <CourseCover
+                                courseId={course.id}
+                                thumbnail={course.thumbnail}
+                                alt={course.title}
+                                imgClassName="transition-transform duration-700 group-hover:scale-105"
+                            >
                                 <div className="absolute inset-0 flex items-end bg-gradient-to-t from-slate-900/60 to-transparent p-4 opacity-0 transition-opacity group-hover:opacity-100">
                                     <span className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-sm font-bold uppercase tracking-widest text-white backdrop-blur-sm">
                                         开始学习 <ChevronRight size={16} />
                                     </span>
                                 </div>
-                                <div className="absolute left-3 top-3 rounded bg-white/90 px-2.5 py-0.5 text-xs font-black uppercase tracking-tighter text-indigo-600 shadow-sm">
+                                <div className="absolute left-3 top-3 z-10 rounded bg-white/90 px-2.5 py-0.5 text-xs font-black uppercase tracking-tighter text-indigo-600 shadow-sm">
                                     {course.category}
                                 </div>
-                            </div>
+                            </CourseCover>
 
                             <div className="flex flex-1 flex-col p-5">
                                 <h3 className="mb-2 line-clamp-1 text-xl font-bold italic leading-tight text-slate-800 transition-colors group-hover:text-indigo-600">

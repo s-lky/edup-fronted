@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } f
 // 图标、动画、工具函数
 // 三层全局状态上下文：登录、个人资料、搜索
 // 所有业务页面页面
-import { BookOpen, Search, Trophy, LayoutDashboard, Menu, X, Loader2, Library, Map } from 'lucide-react';
+import { BookOpen, Search, Trophy, LayoutDashboard, Menu, X, Loader2, Library, Map, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { UserProfileProvider, useUserProfile } from './context/UserProfileContext';
@@ -21,6 +21,8 @@ import AdminPage from './pages/AdminPage';
 import CourseDraftsPage from './pages/CourseDraftsPage';
 import RankingsPage from './pages/RankingsPage';
 import UserCenterPage from './pages/UserCenterPage';
+import PurchasableCoursesPage from './pages/PurchasableCoursesPage';
+import CheckoutPage from './pages/CheckoutPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/registerPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -61,11 +63,15 @@ function Navbar(){
         { name:'学习中心', path:'/', icon:BookOpen },
         { name:'成长中心', path:'/rankings', icon:Trophy },
         { name: adminNavLabel, path:'/admin', icon:LayoutDashboard },
+        { name:'可购课程', path:'/shop', icon:ShoppingBag },
         { name:'课程专区', path:'/courses', icon:Library },
         { name:'学习路径', path:'/learning-paths', icon:Map },
     ];
 
     const isNavActive = (path: string) => {
+        if (path === '/shop') {
+            return location.pathname === '/shop';
+        }
         if (path === '/courses') {
             return location.pathname === '/courses';
         }
@@ -259,6 +265,8 @@ function Footer(){
 function AppShell(){
     const location = useLocation();
     const isPlayerPage = location.pathname.startsWith('/play/');
+    const isShopPage =
+        location.pathname === '/shop' || location.pathname.startsWith('/shop/');
 
     return(
         <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
@@ -267,7 +275,11 @@ function AppShell(){
                 <div
                     className={cn(
                         'flex h-full flex-col scrollbar-thin',
-                        isPlayerPage ? 'overflow-hidden p-2 lg:p-4' : 'overflow-y-auto p-4 md:p-6'
+                        isPlayerPage
+                            ? 'overflow-hidden p-2 lg:p-4'
+                            : isShopPage
+                              ? 'overflow-y-auto p-0'
+                              : 'overflow-y-auto p-4 md:p-6',
                     )}
                 >
                     <Routes>
@@ -281,6 +293,22 @@ function AppShell(){
                                     <Home />
                                 </ProtectedRoute>
                             } 
+                        />
+                        <Route
+                            path="/shop"
+                            element={
+                                <ProtectedRoute>
+                                    <PurchasableCoursesPage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/shop/checkout/:courseId"
+                            element={
+                                <ProtectedRoute>
+                                    <CheckoutPage />
+                                </ProtectedRoute>
+                            }
                         />
                         <Route
                             path="/courses"

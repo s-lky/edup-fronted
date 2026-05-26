@@ -1,19 +1,15 @@
 @import "tailwindcss";
 
 /* 自定义弹幕滚动动画 */
-@theme{
-    /* 定义动画变量名，时长 8 秒、匀速、无限循环 */
-    --animate-danmuku: danmuku 8s linear infinite;
+@theme {
+    --animate-danmaku: danmaku 8s linear forwards;
 
-    /* 动画关键帧 */
     @keyframes danmaku {
-        /* 初始位置屏幕最右侧外 */
-        from{
-            transform: translateA(100vw);
+        from {
+            transform: translateX(100vw);
         }
-        /* 结束位置元素自身最左侧外 */
-        to{
-            transform: translateX(-100%);
+        to {
+            transform: translateX(calc(-100% - 100vw));
         }
     }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 // 业务图标、加载、播放、设置等图标
-import { Users, Video, DollarSign, TrendingUp, Plus, MoreVertical, Eye, Settings, ShieldCheck, ChevronRight, Loader2, Play, FileText, } from 'lucide-react';
+import { Users, Video, DollarSign, TrendingUp, Plus, MoreVertical, Eye, Settings, ShieldCheck, ChevronRight, Loader2, Play, FileText, Trash2, } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 // 登录全局上下文
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { adminAPI, dashboardAPI, type AdminCourseItem, type AdminStats, type LearnerCourseItem, type LearnerDashboardStats, type LearnerLearningTrend, type LearningTrend, } from '../api/index';
 // 新建课程弹窗组件
 import CreateCourseModal from '../components/CreateCourseModal';
+import DeleteCourseModal from '../components/DeleteCourseModal';
 // 默认课程封面兜底图
 const PLACEHOLDER_THUMB =
     'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&q=80';
@@ -63,6 +64,7 @@ export default function AdminPage() {
     const [learnerTrend, setLearnerTrend] = useState<LearnerLearningTrend | null>(null);
     // 新建课程弹窗、刷新标识
     const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
     // 数据请求核心副作用
@@ -266,6 +268,14 @@ export default function AdminPage() {
                 </motion.div>
                 {isManagementView && (
                     <div className="flex flex-wrap gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setDeleteModalOpen(true)}
+                            className="flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3 font-bold text-red-600 shadow-sm transition-colors hover:bg-red-50"
+                        >
+                            <Trash2 size={20} />
+                            删除课程
+                        </button>
                         <Link
                             to="/admin/drafts"
                             className="flex items-center gap-2 rounded-2xl border border-indigo-200 bg-white px-5 py-3 font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-50"
@@ -530,11 +540,18 @@ export default function AdminPage() {
             </div>
 
             {isManagementView && (
-                <CreateCourseModal
-                    open={createModalOpen}
-                    onClose={() => setCreateModalOpen(false)}
-                    onSuccess={reloadManagementData}
-                />
+                <>
+                    <CreateCourseModal
+                        open={createModalOpen}
+                        onClose={() => setCreateModalOpen(false)}
+                        onSuccess={reloadManagementData}
+                    />
+                    <DeleteCourseModal
+                        open={deleteModalOpen}
+                        onClose={() => setDeleteModalOpen(false)}
+                        onSuccess={reloadManagementData}
+                    />
+                </>
             )}
         </div>
     );

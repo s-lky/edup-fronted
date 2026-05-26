@@ -366,12 +366,22 @@ export interface UploadAvatarResult {
 // 课程模块-支持分页、分类、关键词搜索、草稿、发布、编辑、类型定义完整、调用时自动提示参数
 export const courseAPI = {
     // 获取课程列表
-    getList: (params?: { page?: number; pageSize?:number; category?: string; keyword?: string }) => {
-        const query = new URLSearchParams(params as any).toString();
+    getList: (params?: { page?: number; pageSize?: number; category?: string; keyword?: string }) => {
+        const search = new URLSearchParams();
+        if (params?.page != null) search.set('page', String(params.page));
+        if (params?.pageSize != null) search.set('pageSize', String(params.pageSize));
+        if (params?.category) search.set('category', params.category);
+        if (params?.keyword) search.set('keyword', params.keyword);
+        const query = search.toString();
         return request<CourseListResponse>(`/courses${query ? `?${query}` : ''}`);
     },
     // 获取课程详情
     getDetail: (courseId: string) => request<CourseVO>(`/courses/${courseId}`),
+
+    getAccess: (courseId: string) =>
+        request<{ courseId: string; purchased: boolean; previewLimitSeconds: number }>(
+            `/courses/${courseId}/access`,
+        ),
     // 创建课程
     create: (data: CreateCoursePayload) =>
         request<CreateCourseResult>('/courses', {
@@ -396,6 +406,18 @@ export const courseAPI = {
 
     getForManage: (courseId: string) =>
         request<ManageCourseDetail>(`/courses/${courseId}/manage`),
+
+    delete: async (courseId: string) => {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch(`${API_BASE_URL}/courses/${courseId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token && { Authorization: `Bearer ${token}` }),
+            },
+        });
+        return parseApiResponseVoid(response);
+    },
 };
 
 // 文件上传-处理文件上传（视频、头像），使用FormData（不能用JSON），自动携带token
@@ -434,8 +456,38 @@ export const uploadAPI = {
     },
 };
 
+// 视频点播模块
+export interface VideoPlayInfo {
+    videoId: string;
+    courseId: string;
+    title: string;
+    thumbnail: string;
+    playUrl: string;
+    format: 'mp4' | 'hls' | string;
+    purchased: boolean;
+    previewLimitSeconds: number;
+    lastPositionSec: number;
+    durationSeconds?: number;
+    completed: boolean;
+}
+
+export interface VideoProgressInfo {
+    videoId: string;
+    watchedSeconds: number;
+    lastPositionSec: number;
+    duration: number;
+    completed: boolean;
+}
+
+export const videoAPI = {
+    getPlayInfo: (videoId: string) => request<VideoPlayInfo>(`/videos/${videoId}/play`),
+};
+
 // 视频进度模块-视频播放进步记录、学习统计
 export const progressAPI = {
+    getProgress: (videoId: string) =>
+        requestV1<VideoProgressInfo>(`/progress/videos/${videoId}`),
+
     updateProgress: (
         videoId: string,
         data: {
@@ -445,31 +497,69 @@ export const progressAPI = {
             completed: boolean;
         }
     ) =>
-        request(`/progress/videos/${videoId}`, {
+        requestV1(`/progress/videos/${videoId}`, {
             method: 'PUT',
             body: JSON.stringify(data),
         }),
+
+    /** 页面关闭/跳转时使用 keepalive，提高进度保存成功率 */
+    updateProgressKeepalive: (
+        videoId: string,
+        data: {
+            watchedSeconds: number;
+            lastPositionSec: number;
+            duration: number;
+            completed: boolean;
+        }
+    ) => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        void fetch(`${API_V1_BASE_URL}/progress/videos/${videoId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(data),
+            keepalive: true,
+        });
+    },
 
     getStats: () => request<LearningStats>('/learning/stats')
 };
 
 // 弹幕模块-发送与获取
+export interface DanmakuItem {
+    id: string;
+    text: string;
+    videoTimeSec: number;
+    color: string;
+    userId: string;
+    username: string;
+    createdAt?: string;
+}
+
 export const danmakuAPI = {
-    send:(
+    send: (
         videoId: string,
-        data: { text: string; color?: string; videoTimeSec: number }
+        data: { text: string; color?: string; time: number }
     ) =>
-        request(`/videos/${videoId}/danmaku`, {
+        requestV1<DanmakuItem>(`/videos/${videoId}/danmaku`, {
             method: 'POST',
             body: JSON.stringify(data),
         }),
 
     getList: (
         videoId: string,
-        params?: { fromSec?: number; toSec?:number; limit?: number }
-    ) =>{
-        const query = new URLSearchParams(params as any).toString();
-        return request(`/videos/${videoId}/danmaku${query ? `?${query}` : ''}`);
+        params?: { fromSec?: number; toSec?: number }
+    ) => {
+        const query = new URLSearchParams(
+            Object.entries(params ?? {}).reduce<Record<string, string>>((acc, [key, value]) => {
+                if (value !== undefined) acc[key] = String(value);
+                return acc;
+            }, {}),
+        ).toString();
+        return requestV1<DanmakuItem[]>(`/videos/${videoId}/danmaku${query ? `?${query}` : ''}`);
     },
 };
 
@@ -495,13 +585,39 @@ export const aiAPI = {
     },
 };
 
+export interface CreateOrderResult {
+    orderId: string;
+    courseId: string;
+    amount: number;
+    status: string;
+    createdAt?: string;
+}
+
+export interface OrderDetail {
+    orderId: string;
+    courseId: string;
+    courseTitle?: string;
+    courseThumbnail?: string;
+    courseCategory?: string;
+    amount: number;
+    status: string;
+    createdAt?: string;
+}
+
 // 订单模块-创建订单、支付、已购课程
 export const orderAPI = {
     create: (courseId: string, amount: number) =>
-        request('/orders', {
-        method: 'POST',
-        body: JSON.stringify({ courseId, amount }),
-    }),
+        request<CreateOrderResult>('/orders', {
+            method: 'POST',
+            body: JSON.stringify({ courseId, amount }),
+        }),
+
+    prepareCheckout: (courseId: string) =>
+        request<CreateOrderResult>(`/orders/prepare?courseId=${encodeURIComponent(courseId)}`, {
+            method: 'POST',
+        }),
+
+    getDetail: (orderId: string) => request<OrderDetail>(`/orders/${orderId}`),
 
     getList: (params?: { page?: number; pageSize?: number }) => {
         const query = new URLSearchParams(params as any).toString();
@@ -510,8 +626,8 @@ export const orderAPI = {
 
     pay: (orderId: string) =>
         request(`/orders/${orderId}/pay`, {
-        method: 'POST',
-    }),
+            method: 'POST',
+        }),
 
     getPurchasedCourses: () => request<PurchasedCourse[]>('/user/purchased-courses'),
 };

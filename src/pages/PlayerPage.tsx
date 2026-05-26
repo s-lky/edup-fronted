@@ -1,10 +1,12 @@
 ﻿// 视频播放页
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Heart, Play, Maximize, Clock, Loader2, Star, AlertCircle } from 'lucide-react';
+import { Heart, Play, Maximize, Clock, Loader2, AlertCircle, ShoppingBag, Lock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import AIAssistant from '../components/AIAssistant';
-import { danmakuAPI, courseAPI } from '../api/index';
+import DanmakuOverlay from '../components/Danmaku';
+import VideoPlayer, { type VideoPlayerHandle } from '../components/VideoPlayer';
+import { danmakuAPI, courseAPI, type DanmakuItem } from '../api/index';
 
 interface Course {
   // 课程基础字段+内嵌视频数组结构
@@ -33,10 +35,17 @@ export default function PlayerPage() {
   const navigate = useNavigate();
   // 防止重复路由跳转的标记引用
   const redirectOnceRef = useRef(false);
+  const videoPlayerRef = useRef<VideoPlayerHandle>(null);
   // 标签页切换状态（章节 / 详情）
   const [activeTab, setActiveTab] = useState<'chapters' | 'info'>('chapters');
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [previewLimitSec, setPreviewLimitSec] = useState(300);
+  const [previewEnded, setPreviewEnded] = useState(false);
   // 弹幕输入框内容
   const [danmakuInput, setDanmakuInput] = useState('');
+  const [danmakuList, setDanmakuList] = useState<DanmakuItem[]>([]);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [sendingDanmaku, setSendingDanmaku] = useState(false);
   // 课程点赞状态
   const [isLiked, setIsLiked] = useState(false);
   // 课程完整状态
@@ -49,7 +58,33 @@ export default function PlayerPage() {
   useEffect(() => {
     redirectOnceRef.current = false;
     setVideoLoadError(false);
+    setPreviewEnded(false);
+    setDanmakuList([]);
+    setCurrentTime(0);
   }, [courseId, videoId]);
+
+  useEffect(() => {
+    if (!courseId) return;
+    let cancelled = false;
+    const loadAccess = async () => {
+      try {
+        const access = await courseAPI.getAccess(courseId);
+        if (!cancelled) {
+          setHasPurchased(access.purchased);
+          setPreviewLimitSec(access.previewLimitSeconds || 300);
+        }
+      } catch {
+        if (!cancelled) {
+          setHasPurchased(false);
+          setPreviewLimitSec(300);
+        }
+      }
+    };
+    loadAccess();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId]);
 
   // 请求课程详情数据
   useEffect(() => {
@@ -93,6 +128,47 @@ export default function PlayerPage() {
   // 获取当前播放视频对象
   const video = course?.videos.find((v) => v.id === videoId);
 
+  // 加载当前视频弹幕
+  useEffect(() => {
+    if (!videoId) return;
+    let cancelled = false;
+
+    const loadDanmaku = async () => {
+      try {
+        const list = await danmakuAPI.getList(videoId, { fromSec: 0, toSec: 7200 });
+        if (!cancelled) setDanmakuList(list);
+      } catch (err) {
+        console.error('加载弹幕失败:', err);
+      }
+    };
+
+    loadDanmaku();
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
+
+  const handlePreviewEnded = useCallback(() => {
+    setPreviewEnded(true);
+  }, []);
+
+  const handleVideoLoadError = useCallback(() => {
+    setVideoLoadError(true);
+  }, []);
+
+  const handleVideoLoaded = useCallback(() => {
+    setVideoLoadError(false);
+  }, []);
+
+  const handleVideoTimeUpdate = useCallback((time: number) => {
+    setCurrentTime((prev) => (Math.abs(prev - time) >= 0.25 ? time : prev));
+  }, []);
+
+  const handlePurchase = () => {
+    if (!courseId) return;
+    navigate(`/shop/checkout/${courseId}`);
+  };
+
   if (loading) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
@@ -121,18 +197,25 @@ export default function PlayerPage() {
   // 弹幕提交逻辑
   const handleSendDanmaku = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!danmakuInput.trim() || !videoId) return;
+    const text = danmakuInput.trim();
+    if (!text || !videoId || sendingDanmaku) return;
 
+    const time = Math.floor(videoPlayerRef.current?.getCurrentTime() ?? currentTime);
+
+    setSendingDanmaku(true);
     try {
-      await danmakuAPI.send(videoId, {
-        text: danmakuInput,
+      const sent = await danmakuAPI.send(videoId, {
+        text,
         color: '#ffffff',
-        videoTimeSec: 120,
+        time,
       });
+      setDanmakuList((prev) => [...prev, sent]);
       setDanmakuInput('');
     } catch (err) {
       console.error('发送弹幕失败:', err);
       alert('发送失败，请重试');
+    } finally {
+      setSendingDanmaku(false);
     }
   };
 
@@ -141,25 +224,58 @@ export default function PlayerPage() {
       {/* 左侧：固定占满可用高度，内部滚动，不会被右侧聊天撑开 */}
       <section className="flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto pr-0.5 scrollbar-thin">
         <div className="group relative aspect-video w-full max-h-[min(52vh,640px)] shrink-0 overflow-hidden rounded-2xl bg-black shadow-2xl shadow-indigo-500/10 min-[960px]:max-h-[min(56vh,680px)]">
-          <video
+          {!hasPurchased && (
+            <div className="absolute left-3 top-3 z-20 rounded-lg bg-amber-500/90 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
+              试看模式 · 限 {Math.floor(previewLimitSec / 60)} 分钟
+            </div>
+          )}
+          <VideoPlayer
             key={video.id}
-            src={video.url}
-            controls
-            playsInline
-            preload="metadata"
-            className="h-full w-full object-contain"
+            ref={videoPlayerRef}
+            videoId={video.id}
             poster={video.thumbnail || course.thumbnail}
-            onLoadedData={() => setVideoLoadError(false)}
-            onError={() => setVideoLoadError(true)}
-          >
-            您的浏览器不支持 HTML5 视频
-          </video>
+            onTimeUpdate={handleVideoTimeUpdate}
+            onPreviewEnded={handlePreviewEnded}
+            onLoadError={handleVideoLoadError}
+            onLoaded={handleVideoLoaded}
+          />
+
+          {previewEnded && !hasPurchased && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-slate-900/90 px-6 text-center text-white">
+              <Lock className="h-10 w-10 text-indigo-300" />
+              <p className="text-lg font-bold">试看已结束</p>
+              <p className="max-w-sm text-sm text-slate-300">
+                购买本课程（¥{course.price}）后可观看全部 {course.videos.length} 个课时
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handlePurchase}
+                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold hover:bg-indigo-700"
+                >
+                  <ShoppingBag size={16} />
+                  立即购买
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/shop')}
+                  className="rounded-xl border border-white/30 px-5 py-2.5 text-sm font-bold hover:bg-white/10"
+                >
+                  浏览可购课程
+                </button>
+              </div>
+            </div>
+          )}
 
           {videoLoadError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/95 px-4 text-center text-white">
               <AlertCircle className="h-8 w-8 text-amber-400" />
               <p className="text-sm font-semibold">视频加载失败，请检查网络或更换视频地址</p>
             </div>
+          )}
+
+          {!videoLoadError && (
+            <DanmakuOverlay currentTime={currentTime} danmakuList={danmakuList} />
           )}
 
           {!videoLoadError && (
@@ -174,7 +290,7 @@ export default function PlayerPage() {
             type="button"
             className="absolute bottom-3 right-3 z-10 rounded-lg bg-black/50 p-2 text-white hover:bg-black/70"
             aria-label="全屏"
-            onClick={() => document.querySelector('video')?.requestFullscreen?.()}
+            onClick={() => videoPlayerRef.current?.getVideoElement()?.requestFullscreen?.()}
           >
             <Maximize size={16} />
           </button>
@@ -193,10 +309,10 @@ export default function PlayerPage() {
           />
           <button
             type="submit"
-            disabled={!danmakuInput.trim()}
+            disabled={!danmakuInput.trim() || sendingDanmaku}
             className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
           >
-            发送
+            {sendingDanmaku ? '发送中...' : '发送'}
           </button>
         </form>
 

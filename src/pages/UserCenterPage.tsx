@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 // 路由、图标、动画、接口、全局上下文、工具、模拟数据
-import { Link } from 'react-router-dom';
-import {User, Clock, BookOpen, Receipt, ChevronRight, Camera, RotateCcw, Sparkles, Trophy, Upload, KeyRound } from 'lucide-react';
-import { orderAPI, progressAPI, uploadAPI } from '../api/index';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {User, Clock, BookOpen, Receipt, ChevronRight, Camera, RotateCcw, Sparkles, Trophy, Upload, KeyRound, CheckCircle2 } from 'lucide-react';
+import { courseAPI, orderAPI, progressAPI, uploadAPI } from '../api/index';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import { motion } from 'motion/react';
 import { useUserProfile } from '../context/UserProfileContext';
@@ -65,6 +65,8 @@ interface OrderItem {
 }
 
 export default function UserCenterPage() {
+const location = useLocation();
+const navigate = useNavigate();
 // 全局用户、个人资料上下文
 const { user } = useAuth();
 const { profile, setProfile, resetProfile, loading: profileLoading } = useUserProfile();
@@ -94,6 +96,20 @@ const [loading, setLoading] = useState(true);
 // 修改密码弹窗状态
 const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 const [passwordSavedHint, setPasswordSavedHint] = useState(false);
+const [purchaseToast, setPurchaseToast] = useState<string | null>(null);
+
+const [dataVersion, setDataVersion] = useState(0);
+
+useEffect(() => {
+    const state = location.state as { purchaseSuccess?: boolean; courseTitle?: string } | null;
+    if (state?.purchaseSuccess) {
+        setPurchaseToast(state.courseTitle ? `已成功购买「${state.courseTitle}」` : '购买成功！');
+        setDataVersion((v) => v + 1);
+        navigate(location.pathname, { replace: true, state: {} });
+        const t = window.setTimeout(() => setPurchaseToast(null), 5000);
+        return () => window.clearTimeout(t);
+    }
+}, [location.pathname, location.state, navigate]);
 
 //  监听资料同步副作用
 useEffect(() => {
@@ -154,7 +170,23 @@ useEffect(() => {
     };
 
     fetchData();
-}, [isLearner]);
+}, [isLearner, dataVersion]);
+
+const openPurchasedCourse = async (courseId: string, hasVideos: boolean) => {
+    if (!hasVideos) return;
+    try {
+        const detail = await courseAPI.getDetail(courseId);
+        const first = detail.videos?.[0];
+        if (first) {
+            navigate(`/play/${courseId}/${first.id}`);
+        } else {
+            alert('该课程暂无视频');
+        }
+    } catch {
+        alert('无法打开课程，请重试');
+    }
+};
+
 // 保存昵称
 const handleSaveProfile = async () => {
     const ok = await setProfile({ displayName: draftName });
@@ -231,6 +263,17 @@ if (loading || profileLoading) {
 
 return (
     <div className="mx-auto max-w-7xl space-y-10 pb-16 text-base">
+        {purchaseToast && (
+            <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-800"
+            >
+                <CheckCircle2 className="shrink-0 text-emerald-600" size={22} />
+                <p className="font-semibold">{purchaseToast}</p>
+                <span className="text-sm text-emerald-600">已同步至下方「我的已购课程」与「订单记录」</span>
+            </motion.div>
+        )}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-4 py-1.5 text-xs font-black uppercase tracking-[0.2em] text-indigo-600">
@@ -264,19 +307,19 @@ return (
         </div>
     </div>
 
-    <div className="grid gap-10 lg:grid-cols-2 lg:items-stretch">
-    {/* 左侧：资料设置（占满左栏） */}
-    <div className="flex min-h-0 flex-col gap-6">
+    <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+    {/* 左侧：资料设置 */}
+    <div className="flex flex-col gap-4">
     <motion.section
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card-polish flex flex-1 flex-col overflow-hidden"
+        className="card-polish overflow-hidden"
     >
         <div className="border-b border-slate-100 bg-gradient-to-r from-indigo-50/80 to-white px-8 py-5">
             <h2 className="text-lg font-bold text-slate-800">资料设置</h2>
             <p className="mt-0.5 text-sm text-slate-500">修改头像、昵称</p>
         </div>
-        <div className="flex flex-1 flex-col space-y-8 p-8">
+        <div className="space-y-6 p-8">
             <input
                 ref={avatarInputRef}
                 type="file"
@@ -284,7 +327,7 @@ return (
                 className="hidden"
                 onChange={handleAvatarFileChange}
             />
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                 <div className="flex shrink-0 flex-col items-center gap-4 lg:items-start">
                 <div className="relative">
                     <img
@@ -343,7 +386,7 @@ return (
                     <span className="max-w-[14rem] text-center text-sm text-red-600 lg:text-left">{avatarError}</span>
                 )}
             </div>
-            <div className="min-w-0 flex-1 space-y-5">
+            <div className="min-w-0 flex-1 space-y-4">
                 <div>
                     <label
                     htmlFor="nickname"
@@ -387,35 +430,34 @@ return (
                         )}
                 </div>
             </div>
-        </div>
-
-        <div className="mt-auto">
-            <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">
-            头像预设
-            </p>
-                <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
-                {AVATAR_PRESETS.map((p) => (
-                    <button
-                        key={p.seed}
-                        type="button"
-                        onClick={() => pickAvatar(p.seed)}
-                        className={cn(
-                            'group flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all',
-                            draftAvatarUrl === dicebearUrl(p.seed)
-                            ? 'border-indigo-600 bg-indigo-50/50'
-                            : 'border-transparent bg-slate-50 hover:border-indigo-200',
-                        )}
+            </div>
+            <div className="border-t border-slate-100 pt-6">
+                <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">
+                    头像预设
+                </p>
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                    {AVATAR_PRESETS.map((p) => (
+                        <button
+                            key={p.seed}
+                            type="button"
+                            onClick={() => pickAvatar(p.seed)}
+                            className={cn(
+                                'group flex flex-col items-center gap-2 rounded-xl border-2 p-2.5 transition-all',
+                                draftAvatarUrl === dicebearUrl(p.seed)
+                                    ? 'border-indigo-600 bg-indigo-50/50'
+                                    : 'border-transparent bg-slate-50 hover:border-indigo-200',
+                            )}
                         >
-                    <img
-                        src={dicebearUrl(p.seed)}
-                        alt=""
-                        className="h-14 w-14 rounded-lg object-cover sm:h-16 sm:w-16"
-                    />
-                    <span className="text-xs font-bold text-slate-500 group-hover:text-indigo-600">
-                        {p.label}
-                    </span>
-                    </button>
-                ))}
+                            <img
+                                src={dicebearUrl(p.seed)}
+                                alt=""
+                                className="h-12 w-12 rounded-lg object-cover sm:h-14 sm:w-14"
+                            />
+                            <span className="text-xs font-bold text-slate-500 group-hover:text-indigo-600">
+                                {p.label}
+                            </span>
+                        </button>
+                    ))}
                 </div>
             </div>
         </div>
@@ -430,7 +472,7 @@ return (
         }}
     />
 
-    <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-4 text-sm text-slate-600">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-5 py-3 text-sm text-slate-600">
         <span className="font-bold text-slate-700">账号角色：</span>
         {roleLabel[user?.role ?? 'learner']} · ID {user?.id ?? '—'}
     </div>
@@ -447,9 +489,9 @@ return (
         </div>
         {purchasedCourses.length === 0 ? (
         <div className="card-polish p-12 text-center text-base text-slate-500">
-            暂无已购课程，去学习中心逛逛吧。
+            暂无已购课程，去可购课程页面选购吧。
             <Link
-               to="/"
+               to="/shop"
                className="mt-3 inline-flex items-center gap-1 font-bold text-indigo-600 hover:underline"
             >
             前往选课 <ChevronRight size={16} />
@@ -458,8 +500,10 @@ return (
         ) : (
         <div className="space-y-4">
             {purchasedCourses.map((course) => {
-                const first = course.videos?.[0];
-                if (!first) {
+                const videoCount = course.videoCount || course.videos?.length || 0;
+                const canPlay = videoCount > 0;
+
+                if (!canPlay) {
                     return (
                     <div
                         key={course.id}
@@ -481,10 +525,11 @@ return (
                     );
                 }
             return (
-                <Link
+                <button
                     key={course.id}
-                    to={`/play/${course.id}/${first.id}`}
-                    className="card-polish group flex items-center gap-5 p-5 transition-shadow hover:shadow-md"
+                    type="button"
+                    onClick={() => openPurchasedCourse(course.id, canPlay)}
+                    className="card-polish group flex w-full items-center gap-5 p-5 text-left transition-shadow hover:shadow-md"
                 >
                 <img
                     src={course.thumbnail}
@@ -497,14 +542,14 @@ return (
                     </p>
                     <p className="text-sm text-indigo-600">{course.category}</p>
                     <p className="mt-1 line-clamp-1 text-sm text-slate-500">
-                        {course.videoCount || course.videos?.length || 0} 个课时
+                        {videoCount} 个课时
                     </p>
                 </div>
                 <ChevronRight
                     size={20}
                     className="shrink-0 text-slate-300 group-hover:text-indigo-500"
                 />
-                </Link>
+                </button>
             );
             })}
         </div>
