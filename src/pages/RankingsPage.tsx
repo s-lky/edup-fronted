@@ -39,14 +39,21 @@ export default function RankingPage() {
             setLoading(true);
             setError('');
             try {
-                const [rankings, mine] = await Promise.all([
+                const [rankingsResult, mineResult] = await Promise.allSettled([
                     rankingAPI.getList({ type, limit: 50 }),
                     isAuthenticated ? rankingAPI.getMyRank(type) : Promise.resolve(null),
                 ]);
-                if (!cancelled) {
-                    setList(rankings ?? []);
-                    setMyRank(mine);
+
+                if (cancelled) return;
+
+                if (rankingsResult.status === 'rejected') {
+                    throw rankingsResult.reason;
                 }
+
+                setList(rankingsResult.value ?? []);
+                setMyRank(
+                    mineResult.status === 'fulfilled' ? mineResult.value : null,
+                );
             } catch (e) {
                 if (!cancelled) {
                     setError(e instanceof Error ? e.message : '加载排行榜失败');

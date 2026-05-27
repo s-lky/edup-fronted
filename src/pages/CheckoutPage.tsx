@@ -1,3 +1,4 @@
+// 课程订单结算 / 支付页面
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -14,18 +15,25 @@ import { COURSE_THUMB_FALLBACK } from '../components/CourseListSection';
 import { cn } from '../lib/utils';
 
 export default function CheckoutPage() {
+    // 读取路由参数 :courseId
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
 
+    // 页面整体加载（拉取课程+创建订单）
     const [loading, setLoading] = useState(true);
+    // 支付按钮加载态
     const [paying, setPaying] = useState(false);
+    // 全局错误文案
     const [error, setError] = useState('');
+    // 订单信息（接口返回）
     const [order, setOrder] = useState<CreateOrderResult | null>(null);
+    // 课程基础信息
     const [courseTitle, setCourseTitle] = useState('');
     const [courseThumb, setCourseThumb] = useState('');
     const [courseCategory, setCourseCategory] = useState('');
 
     useEffect(() => {
+        // 路由无课程ID，直接报错
         if (!courseId) {
             setError('课程不存在');
             setLoading(false);
@@ -34,24 +42,30 @@ export default function CheckoutPage() {
 
         const init = async () => {
             setLoading(true);
-            setError('');
+            setError(''); // 清空历史错误
             try {
+                // 并行发起两个请求：课程详情 + 预创建订单
                 const [detail, checkout] = await Promise.all([
                     courseAPI.getDetail(courseId),
                     orderAPI.prepareCheckout(courseId),
                 ]);
+                // 回填课程信息，无封面则使用兜底图
                 setCourseTitle(detail.title);
                 setCourseThumb(detail.thumbnail || COURSE_THUMB_FALLBACK);
                 setCourseCategory(detail.category);
+                // 回填订单信息
                 setOrder(checkout);
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : '加载订单失败';
+                // 业务拦截：课程已购买，直接跳个人中心（替换当前路由，禁止回退到结算页）
                 if (msg.includes('已购买')) {
                     navigate('/profile', { replace: true });
                     return;
                 }
+                // 其他错误展示文案
                 setError(msg);
             } finally {
+                 // 无论成功失败，结束页面加载状态
                 setLoading(false);
             }
         };
@@ -59,19 +73,25 @@ export default function CheckoutPage() {
         init();
     }, [courseId, navigate]);
 
+    // 支付处理函数 handlePay
     const handlePay = async () => {
+        // 无合法订单ID，直接拦截
         if (!order?.orderId) return;
         setPaying(true);
         setError('');
         try {
+             // 调用支付接口
             await orderAPI.pay(order.orderId);
+            // 支付成功：跳个人中心，路由传参标记购买成功 + 课程名称
             navigate('/profile', {
                 replace: true,
                 state: { purchaseSuccess: true, courseTitle },
             });
         } catch (err: unknown) {
+            // 支付失败，展示错误
             setError(err instanceof Error ? err.message : '支付失败');
         } finally {
+             // 结束支付加载态
             setPaying(false);
         }
     };

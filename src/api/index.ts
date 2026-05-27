@@ -1,5 +1,11 @@
 // 基础配置导入
 import { API_BASE_URL, API_V1_BASE_URL } from './config';
+import {
+    isTokenAuthError,
+    notifySessionExpired,
+    refreshAccessToken,
+    TOKEN_KEY,
+} from './authTokens';
 
 // 类型定义
 interface ApiResponse<T> {
@@ -111,17 +117,17 @@ interface AIChatResponse {
 
 
 // 核心工具函数（请求、响应封装）
-// 统一添加请求头、统一处理token认证、统一解析响应、统一抛出错误、避免重复代码
-async function parseApiResponse<T>(response: Response): Promise<T> {
+function buildAuthHeaders(options: RequestInit): HeadersInit {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const isFormData = options.body instanceof FormData;
+    return {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+    };
+}
 
-    // 解析JSON：失败则返回默认错误对象
-    const result: ApiResponse<T> = await response.json().catch(() => ({
-        code: response.status,
-        message: '请求失败',
-        data: null as unknown as T,
-    }));
-
-    // 三层校验：HTTP状态->业务码->数据非空
+function finalizeApiResult<T>(response: Response, result: ApiResponse<T>): T {
     if (!response.ok) {
         throw new Error(result.message || `HTTP ${response.status}`);
     }
@@ -131,35 +137,10 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
     if (result.data === null || result.data === undefined) {
         throw new Error(result.message || '返回数据为空');
     }
-    return result.data; //只返回业务数据，剥离包装
+    return result.data;
 }
 
-// 通用请求封装（/api/*）
-async function request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-): Promise<T> {
-    const token = localStorage.getItem('accessToken'); //获取登录token
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json', //默认JSON请求
-            ...(token && { Authorization: `Bearer ${token}` }), //自动携带token
-            ...options.headers, //允许覆盖自定义请求头
-        },
-    });
-
-    return parseApiResponse<T>(response);
-}
-
-async function parseApiResponseVoid(response: Response): Promise<void> {
-    const result: ApiResponse<unknown> = await response.json().catch(() => ({
-        code: response.status,
-        message: '请求失败',
-        data: null,
-    }));
-
+function finalizeApiResultVoid(response: Response, result: ApiResponse<unknown>): void {
     if (!response.ok) {
         throw new Error(result.message || `HTTP ${response.status}`);
     }
@@ -168,42 +149,72 @@ async function parseApiResponseVoid(response: Response): Promise<void> {
     }
 }
 
-// /api/v1/* 请求：适配接口版本化
-// 逻辑与request一致，只是拼接API_V1_BASE_URL
-async function requestV1<T>(
-    endpoint: string,
+async function executeAuthenticatedRequest<T>(
+    url: string,
     options: RequestInit = {},
+    retried = false,
 ): Promise<T> {
-    const token = localStorage.getItem('accessToken');
-
-    const response = await fetch(`${API_V1_BASE_URL}${endpoint}`, {
+    const response = await fetch(url, {
         ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-            ...options.headers,
-        },
+        headers: buildAuthHeaders(options),
     });
 
-    return parseApiResponse<T>(response);
+    const result: ApiResponse<T> = await response.json().catch(() => ({
+        code: response.status,
+        message: '请求失败',
+        data: null as unknown as T,
+    }));
+
+    if (!retried && isTokenAuthError(result.code, result.message)) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+            return executeAuthenticatedRequest<T>(url, options, true);
+        }
+        notifySessionExpired();
+    }
+
+    return finalizeApiResult(response, result);
 }
 
-async function requestV1Void(
-    endpoint: string,
+async function executeAuthenticatedRequestVoid(
+    url: string,
     options: RequestInit = {},
+    retried = false,
 ): Promise<void> {
-    const token = localStorage.getItem('accessToken');
-
-    const response = await fetch(`${API_V1_BASE_URL}${endpoint}`, {
+    const response = await fetch(url, {
         ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-            ...options.headers,
-        },
+        headers: buildAuthHeaders(options),
     });
 
-    return parseApiResponseVoid(response);
+    const result: ApiResponse<unknown> = await response.json().catch(() => ({
+        code: response.status,
+        message: '请求失败',
+        data: null,
+    }));
+
+    if (!retried && isTokenAuthError(result.code, result.message)) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+            return executeAuthenticatedRequestVoid(url, options, true);
+        }
+        notifySessionExpired();
+    }
+
+    finalizeApiResultVoid(response, result);
+}
+
+// 通用请求封装（/api/*）
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    return executeAuthenticatedRequest<T>(`${API_BASE_URL}${endpoint}`, options);
+}
+
+// /api/v1/* 请求：适配接口版本化
+async function requestV1<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    return executeAuthenticatedRequest<T>(`${API_V1_BASE_URL}${endpoint}`, options);
+}
+
+async function requestV1Void(endpoint: string, options: RequestInit = {}): Promise<void> {
+    return executeAuthenticatedRequestVoid(`${API_V1_BASE_URL}${endpoint}`, options);
 }
 
 // 认证模块(登录/注册/token)
@@ -407,52 +418,31 @@ export const courseAPI = {
     getForManage: (courseId: string) =>
         request<ManageCourseDetail>(`/courses/${courseId}/manage`),
 
-    delete: async (courseId: string) => {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch(`${API_BASE_URL}/courses/${courseId}`, {
+    delete: (courseId: string) =>
+        executeAuthenticatedRequestVoid(`${API_BASE_URL}/courses/${courseId}`, {
             method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(token && { Authorization: `Bearer ${token}` }),
-            },
-        });
-        return parseApiResponseVoid(response);
-    },
+        }),
 };
 
 // 文件上传-处理文件上传（视频、头像），使用FormData（不能用JSON），自动携带token
 export const uploadAPI = {
     
-    uploadVideo: async (file: File): Promise<UploadVideoResult> => {
-        const token = localStorage.getItem('accessToken');
+    uploadVideo: (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-
-        const response = await fetch(`${API_BASE_URL}/uploads/video`, {
-            method: 'POST',
-            headers: {
-                ...(token && { Authorization: `Bearer ${token}` }),
-            },
-            body: formData,
-        });
-
-        return parseApiResponse<UploadVideoResult>(response);
+        return executeAuthenticatedRequest<UploadVideoResult>(
+            `${API_BASE_URL}/uploads/video`,
+            { method: 'POST', body: formData },
+        );
     },
 
-    uploadAvatar: async (file: File): Promise<UploadAvatarResult> => {
-        const token = localStorage.getItem('accessToken');
+    uploadAvatar: (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-
-        const response = await fetch(`${API_BASE_URL}/uploads/avatar`, {
-            method: 'POST',
-            headers: {
-                ...(token && { Authorization: `Bearer ${token}` }),
-            },
-            body: formData,
-        });
-
-        return parseApiResponse<UploadAvatarResult>(response);
+        return executeAuthenticatedRequest<UploadAvatarResult>(
+            `${API_BASE_URL}/uploads/avatar`,
+            { method: 'POST', body: formData },
+        );
     },
 };
 
@@ -512,7 +502,7 @@ export const progressAPI = {
             completed: boolean;
         }
     ) => {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem(TOKEN_KEY);
         if (!token) return;
         void fetch(`${API_V1_BASE_URL}/progress/videos/${videoId}`, {
             method: 'PUT',

@@ -1,37 +1,42 @@
+// 课程批量删除弹窗组件
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { adminAPI, courseAPI, type AdminCourseItem } from '../api';
 import { cn } from '../lib/utils';
 
+// 组件入参类型
 interface DeleteCourseModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
+  open: boolean; 
+  onClose: () => void; //关闭弹窗回调
+  onSuccess: () => void; //删除成功回调
 }
 
 export default function DeleteCourseModal({ open, onClose, onSuccess }: DeleteCourseModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState('');
-  const [courses, setCourses] = useState<AdminCourseItem[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);// 列表加载中
+  const [deleting, setDeleting] = useState(false);// 执行删除中
+  const [error, setError] = useState('');// 错误文案
+  const [courses, setCourses] = useState<AdminCourseItem[]>([]);// 全部课程
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());// 选中课程ID集合
 
+  // 计算属性：过滤已发布课程
   const publishedCourses = useMemo(
     () => courses.filter((course) => course.status === 'published'),
     [courses],
   );
 
+  // 核心副作用：弹窗打开时加载课程列表
   useEffect(() => {
     if (!open) return;
 
-    let cancelled = false;
+    let cancelled = false;// 标记组件是否已卸载/弹窗已关闭
     setLoading(true);
     setError('');
-    setSelectedIds(new Set());
+    setSelectedIds(new Set());// 每次打开弹窗清空选中项
 
     const loadCourses = async () => {
       try {
+         // 拉取课程列表（页码1，条数100）
         const res = await adminAPI.listCourses(1, 100);
         if (!cancelled) setCourses(res.list ?? []);
       } catch (e) {
@@ -44,6 +49,7 @@ export default function DeleteCourseModal({ open, onClose, onSuccess }: DeleteCo
     };
 
     loadCourses();
+     // 清理函数：弹窗关闭/组件卸载时，标记请求取消
     return () => {
       cancelled = true;
     };
@@ -51,7 +57,7 @@ export default function DeleteCourseModal({ open, onClose, onSuccess }: DeleteCo
 
   const toggleCourse = (courseId: string) => {
     setSelectedIds((prev) => {
-      const next = new Set(prev);
+      const next = new Set(prev); //基于旧集合拷贝（不可变更新）
       if (next.has(courseId)) next.delete(courseId);
       else next.add(courseId);
       return next;
@@ -59,16 +65,20 @@ export default function DeleteCourseModal({ open, onClose, onSuccess }: DeleteCo
   };
 
   const toggleAll = () => {
+    // 已全部选中->清空
     if (selectedIds.size === publishedCourses.length) {
       setSelectedIds(new Set());
       return;
     }
+    // 未全选->选中所有已发布课程
     setSelectedIds(new Set(publishedCourses.map((course) => course.id)));
   };
 
+  // 核心业务：批量删除逻辑
   const handleDelete = async () => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) return; // 无选中项，直接拦截
 
+    // 浏览器原生二次确认弹窗
     const confirmed = window.confirm(
       `确定删除选中的 ${selectedIds.size} 门已发布课程吗？删除后学生端将无法访问，此操作不可恢复。`,
     );
@@ -78,25 +88,28 @@ export default function DeleteCourseModal({ open, onClose, onSuccess }: DeleteCo
     setError('');
 
     const ids = Array.from(selectedIds);
-    const failed: string[] = [];
+    const failed: string[] = []; // 记录删除失败的ID
 
+     // 串行逐个删除（避免并发请求压力）
     for (const courseId of ids) {
       try {
         await courseAPI.delete(courseId);
       } catch {
-        failed.push(courseId);
+        failed.push(courseId); // 单条失败存入数组
       }
     }
 
     setDeleting(false);
 
+      // 存在删除失败项
     if (failed.length > 0) {
       setError(`有 ${failed.length} 门课程删除失败，请重试`);
-      setSelectedIds(new Set(failed));
-      if (failed.length < ids.length) onSuccess();
+      setSelectedIds(new Set(failed));  // 自动选中失败项，方便二次重试
+      if (failed.length < ids.length) onSuccess(); // 部分成功，通知父组件刷新
       return;
     }
 
+    // 全部删除成功
     onSuccess();
     onClose();
   };

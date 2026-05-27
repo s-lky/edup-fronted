@@ -1,3 +1,4 @@
+// 课程商城列表页
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -20,9 +21,11 @@ import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
 const PREVIEW_LABEL = '试看 5 分钟';
-
+// 过滤掉「全部」，只保留实际分类，用于批量拉取数据
 const SHOP_CATEGORIES = COURSE_CATEGORIES.filter((c) => c !== '全部');
 
+// 底层请求工具函数（纯逻辑，组件外定义）
+// 单页课程请求
 async function fetchCoursesPage(page: number, pageSize: number, category?: string) {
     const params: { page: number; pageSize: number; category?: string } = { page, pageSize };
     if (category) params.category = category;
@@ -32,8 +35,10 @@ async function fetchCoursesPage(page: number, pageSize: number, category?: strin
 /** 拉取某一分类下全部已发布课程（分页合并） */
 async function fetchByCategory(category: string): Promise<Course[]> {
     const pageSize = 50;
+    // 先拉第一页
     const first = await fetchCoursesPage(1, pageSize, category);
     const all = [...(first.list || [])];
+     // 计算总页数，循环拉取剩余分页
     const totalPages = Math.ceil((first.total || 0) / pageSize);
     for (let page = 2; page <= totalPages; page++) {
         const res = await fetchCoursesPage(page, pageSize, category);
@@ -44,9 +49,11 @@ async function fetchByCategory(category: string): Promise<Course[]> {
 
 /** 「全部」：合并各分类课程；单分类：只拉该分类 */
 async function fetchAllPublishedCourses(category?: string): Promise<Course[]> {
+    // 选中具体分类：只拉该分类
     if (category) {
         return fetchByCategory(category);
     }
+    // 选中「全部」：并行拉取所有分类，用 Map 去重（防止课程跨分类重复）
     const batches = await Promise.all(SHOP_CATEGORIES.map((cat) => fetchByCategory(cat)));
     const merged = new Map<string, Course>();
     for (const list of batches) {
@@ -57,23 +64,35 @@ async function fetchAllPublishedCourses(category?: string): Promise<Course[]> {
     return Array.from(merged.values());
 }
 
+// 组件内部状态 & 权限判断
 export default function PurchasableCoursesPage() {
     const navigate = useNavigate();
     const { user } = useAuth();
+    
+    // 权限：管理员 / 讲师 可以发布课程
     const canManageCourses = user?.role === 'admin' || user?.role === 'instructor';
 
+    // 课程列表
     const [courses, setCourses] = useState<Course[]>([]);
+     // 已购买课程 ID 集合（快速判断是否已购）
     const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set());
+    // 全局加载态
     const [loading, setLoading] = useState(true);
+    // 错误文案
     const [error, setError] = useState('');
+    // 当前选中分类
     const [selectedCategory, setSelectedCategory] = useState('全部');
+    // 新建课程弹窗显隐
     const [createModalOpen, setCreateModalOpen] = useState(false);
 
+    // 数据加载逻辑 loadData
     const loadData = useCallback(async () => {
         setLoading(true);
         setError('');
+        // 分类为「全部」则不传 category 参数
         const category = selectedCategory !== '全部' ? selectedCategory : undefined;
         try {
+            // 拉取当前分类下所有课程
             const allCourses = await fetchAllPublishedCourses(category);
             setCourses(allCourses);
         } catch (err) {
@@ -82,6 +101,7 @@ export default function PurchasableCoursesPage() {
             setCourses([]);
         }
 
+        // 并行拉取：当前用户已购课程列表
         try {
             const purchased = await orderAPI.getPurchasedCourses();
             setPurchasedIds(new Set(purchased.map((c) => c.id)));
@@ -97,6 +117,8 @@ export default function PurchasableCoursesPage() {
         loadData();
     }, [loadData]);
 
+    // 页面交互方法
+    // 打开试看
     const openPreview = async (course: Course) => {
         try {
             const detail = await courseAPI.getDetail(course.id);
@@ -105,12 +127,14 @@ export default function PurchasableCoursesPage() {
                 alert('该课程暂无视频');
                 return;
             }
+            // 跳转到播放页：课程ID + 第一个视频ID
             navigate(`/play/${course.id}/${firstVideo.id}`);
         } catch {
             alert('无法打开试看，请重试');
         }
     };
 
+    // 已购课程进入完整学习
     const openFullPlay = async (course: Course) => {
         try {
             const detail = await courseAPI.getDetail(course.id);
@@ -125,6 +149,7 @@ export default function PurchasableCoursesPage() {
         }
     };
 
+    // 跳转到订单结算页
     const goCheckout = (courseId: string) => {
         navigate(`/shop/checkout/${courseId}`);
     };
@@ -147,17 +172,21 @@ export default function PurchasableCoursesPage() {
                     <p className="mt-4 max-w-3xl text-base leading-relaxed text-indigo-100 md:text-lg">
                         未购买课程支持 {PREVIEW_LABEL}；购买后可在个人中心的「我的已购课程」与「订单记录」中查看。
                     </p>
+                     {/* 标签、大标题、说明文案 */}
+                     {/* 动态展示课程总数 */}
                     {!loading && courses.length > 0 && (
                         <p className="mt-6 text-sm font-semibold text-indigo-200">
                             共 {courses.length} 门可购课程
                         </p>
                     )}
                 </div>
+                {/* 背景虚化装饰圆 */}
                 <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
                 <div className="absolute -bottom-20 left-1/4 h-48 w-48 rounded-full bg-violet-400/20 blur-3xl" />
             </section>
 
             <div className="mx-auto w-full max-w-[1600px] space-y-8 px-4 md:px-6 lg:px-8">
+                {/* 分类标签组 */}
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
                     <div className="flex flex-wrap gap-3">
                         {COURSE_CATEGORIES.map((cat) => (
@@ -176,6 +205,8 @@ export default function PurchasableCoursesPage() {
                             </button>
                         ))}
                     </div>
+
+                    {/* 权限按钮：仅管理员/讲师可见 */}
                     {canManageCourses && (
                         <button
                             type="button"
